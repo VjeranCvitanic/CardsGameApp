@@ -1,0 +1,239 @@
+syntax = "proto3";
+
+package cardsGame;
+
+// The service definition
+service CardsGameServer {
+  // A simple RPC
+  rpc Connect (ConnectReq) returns (ConnectRsp) {}
+  rpc PlayMove (PlayMoveReq) returns (PlayMoveRsp) {}
+  rpc GameEventStream (GameEventMsg) returns (GameEventMsg) {}
+}
+
+// ===========================================================================================
+// ===================================== CONNECTION ==========================================
+// ===========================================================================================
+enum GameType {
+  INVALID_GAME_TYPE = 0;
+  BRISCOLA = 1;
+  TRESSETTE = 2;
+}
+
+// The request message
+message ConnectReq {
+  string name = 1;
+  GameType gameType = 2;
+  string message = 3;
+}
+
+// The response message
+message ConnectRsp {
+    enum ConnFailReason {
+        UNKNOWN = 0;
+        EMPTY_NAME = 1;
+        INVALID_NAME_SIZE = 2;
+        NAME_ALREADY_TAKEN = 3;
+    }
+
+    oneof rsp {
+        int32 success_id = 1;
+        ConnFailReason fail_reason = 2;
+    }
+
+    string message = 3; // optional extra info
+}
+
+// ===========================================================================================
+// ===================================== Cards ==========================================
+// ===========================================================================================
+
+enum CardColor {
+  INVALID_COLOR = 0;
+  SPADE = 1;
+  COPPE = 2;
+  DENARI = 3;
+  BASTONI = 4;
+}
+
+enum CardNumber {
+  INVALID_NUMBER = 0;
+  ASSO = 1;
+  DUE = 2;
+  TRE = 3;
+  QUATTRO = 4;
+  CINQUE = 5;
+  SEI = 6;
+  SETTE = 7;
+  FANTE = 8;
+  CAVALLO = 9;
+  RE = 10;
+}
+
+message Card {
+    CardColor color = 1;   // the color of the card
+    CardNumber number = 2;      // the number/value of the card
+}
+
+enum Call {
+  NO_CALL = 0;
+  BUSSO = 1;
+  STRISCIO = 2;
+  CON_QUESTA_BASTA = 3;
+}
+
+message Move {
+  Card card = 1;
+  Call call = 2;
+}
+
+message PlayMoveReq {
+  string playerId = 1;
+  Move move = 2;
+  string message = 3;
+}
+
+enum MoveRsp {
+  MOVE_OK = 0;
+  INVALID_PLAYER_NAME = 1;
+  NOT_YOUR_TURN = 2;
+  CARD_NOT_IN_HAND = 3;
+  COLOR_CONSTRAINT_NOT_MET = 4;
+  CANT_CALL_IF_NOT_FIRST_OF_HAND = 5;
+}
+
+message PlayMoveRsp {
+  MoveRsp moveRsp = 1;
+}
+
+message PlayerDealtCardsMsg {
+  int32 playerId = 1;
+  repeated Card card = 2;
+}
+
+message PlayerPlayedMoveMsg {
+  string playerId = 1;
+  Move move = 2;
+}
+
+message StartRoundMsg {
+  int32 firstToPlayId = 1;
+}
+
+message StartGameMsg {
+  int32 firstToPlayId = 1;
+  GameType gameType = 2;
+  optional Card lastCard = 3; // briscola only
+}
+
+message StartMatchMsg {
+  int32 firstToPlayId = 1;
+  GameType gameType = 2;
+  optional int32 teammateId = 3;
+}
+
+message Points {
+  int32 punti = 1;
+  int32 bella = 2;
+}
+
+message RoundOverMsg {
+  int32 winnerId = 1;
+  Points points = 2;
+}
+
+message TeamPoints {
+  int32 teamId = 1;
+  Points points = 2;
+}
+
+message GameOverMsg {
+  int32 teamWinnerId = 1;
+  repeated TeamPoints points = 2;
+}
+
+message MatchScore {
+  oneof value {
+    Points points = 1;       // tressette
+    int32 numWonGames = 2;   // briscola
+  }
+}
+
+message MatchOverMsg {
+  int32 teamWinneId = 1;
+  MatchScore score = 2;
+}
+
+
+message YourTurnMsg {
+  int32 playerId = 1;
+  repeated Card hand = 2;
+  repeated Card cardsPlayedInRound = 3;
+  optional CardColor strongColor = 4; // briscola only
+  repeated Card legalMoves = 5;
+}
+
+message AcussoMsg {
+  enum AcussoType
+  {
+    NO_ACUSSO = 0;
+    NAPOLITANA_SPADE = 1;
+    NAPOLITANA_COPPE = 2;
+    NAPOLITANA_DENARI = 3;
+    NAPOLITANA_BASTONI = 4;
+    ASSO_ACUSSO = 5;
+    DUE_ACUSSO = 6;
+    TRE_ACUSSO = 7;
+    ASSO_SENZA_SPADE = 8;
+    ASSO_SENZA_COPPE = 9;
+    ASSO_SENZA_DENARI = 10;
+    ASSO_SENZA_BASTONI = 11;
+    DUE_SENZA_SPADE = 12;
+    DUE_SENZA_COPPE = 13;
+    DUE_SENZA_DENARI = 14;
+    DUE_SENZA_BASTONI = 15;
+    TRE_SENZA_SPADE = 16;
+    TRE_SENZA_COPPE = 17;
+    TRE_SENZA_DENARI = 18;
+    TRE_SENZA_BASTONI = 19;
+  };
+
+  AcussoType acussoType = 2;
+  int32 acussoPoints = 3;
+}
+
+message AcussosMsg {
+  int32 AcussoPlayerId = 1;
+  repeated AcussoMsg acusso = 2;
+}
+
+message GameEventMsg {
+  enum EventType {
+    INVALID_EVENT = 0;
+    PLAYER_DEALT_CARDS_EVENT = 1;
+    PLAYER_PLAYED_MOVE_EVENT = 2;
+    START_ROUND_EVENT = 3;
+    START_GAME_EVENT = 4;
+    START_MATCH_EVENT = 5;
+    ROUND_OVER_EVENT = 6;
+    GAME_OVER_EVENT = 7;
+    MATCH_OVER_EVENT = 8;
+    YOUR_TURN_EVENT = 9;
+    ACUSSO_EVENT = 10;
+    BRISCOLA_LAST_ROUND_EVENT = 11;
+  }
+
+  int32 playerId = 1;
+  EventType eventType = 2;
+  oneof eventMsg {
+    PlayerDealtCardsMsg playerDealtCards = 3;
+    PlayerPlayedMoveMsg playerPlayedMove = 4;
+    StartRoundMsg startRound = 5;
+    StartGameMsg startGame = 6;
+    StartMatchMsg startMatch = 7;
+    RoundOverMsg roundOver = 8;
+    GameOverMsg gameOver = 9;
+    MatchOverMsg matchOver = 10;
+    YourTurnMsg yourTurn = 11;
+    AcussosMsg acussoMsg = 12;
+  }
+}

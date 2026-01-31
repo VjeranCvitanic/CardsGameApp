@@ -1,0 +1,66 @@
+cmake_minimum_required(VERSION 3.16)
+project(card_games LANGUAGES CXX)
+
+# =========================
+# Global settings
+# =========================
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+set(CMAKE_C_STANDARD 99)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+
+option(BUILD_SHARED_LIBS "Build shared libraries" ON)
+# =========================
+# Common library
+# =========================
+add_library(card_engine
+    # Engine base
+    src/EngineBase/Cards.cpp
+    src/EngineBase/Deck.cpp
+    src/EngineBase/CardsRound.cpp
+    src/EngineBase/CardsGame.cpp
+    src/EngineBase/CardsMatch.cpp
+
+    # Briscola
+    src/Briscola/BriscolaRound.cpp
+    src/Briscola/BriscolaGame.cpp
+    src/Briscola/BriscolaMatch.cpp
+    src/Briscola/BriscolaRules.cpp
+
+    # Tressette
+    src/Tressette/TressetteMatch.cpp
+    src/Tressette/TressetteGame.cpp
+    src/Tressette/TressetteRound.cpp
+    src/Tressette/TressetteRules.cpp
+
+    # Events / infra
+    src/Logger.cpp
+    src/Acussos.cpp
+
+    # Engine interface
+    src/engineIF.cpp
+)
+target_include_directories(card_engine
+    PUBLIC
+        ${CMAKE_SOURCE_DIR}/inc
+        ${CMAKE_SOURCE_DIR}/inc/EngineBase
+        ${CMAKE_SOURCE_DIR}/inc/Briscola
+        ${CMAKE_SOURCE_DIR}/inc/Tressette
+        ${CMAKE_SOURCE_DIR}/inc/Events
+)
+
+# =========================
+# Tournament executable
+# =========================
+add_executable(briscola
+    src/Briscola/main_briscola.cpp
+)
+target_link_libraries(briscola PRIVATE card_engine)
+
+add_executable(tressette
+    src/Tressette/main_tressette.cpp
+)
+target_link_libraries(tressette PRIVATE card_engine)
+
