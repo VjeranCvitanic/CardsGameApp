@@ -3,6 +3,7 @@ project(ExampleGrpc LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 
+
 find_package(Protobuf CONFIG REQUIRED)
 find_package(gRPC CONFIG REQUIRED)
 
@@ -73,6 +74,7 @@ target_include_directories(proto_lib
 # ---- Server
 add_executable(server 
     src/server.cpp
+    src/GameSession.cpp
     src/ProtoToDomain.cpp)
 target_link_libraries(server PRIVATE proto_lib)
 
@@ -94,27 +96,8 @@ target_link_libraries(server
 # ---- Client
 add_executable(client src/client.cpp)
 target_link_libraries(client PRIVATE proto_lib)
-
-add_executable(gameSessionTest src/GameSession.cpp)
-
-# Tell it where to find the headers for the engine
-target_include_directories(gameSessionTest
+target_include_directories(client
     PRIVATE
         "${CMAKE_SOURCE_DIR}/inc"
-        "${CMAKE_SOURCE_DIR}/../CardsGameEngine/inc"
-        "${CMAKE_SOURCE_DIR}/../CardsGameEngine/inc/EngineBase"
-        "${CMAKE_SOURCE_DIR}/../CardsGameEngine/inc/Tressette"
-        "${CMAKE_SOURCE_DIR}/../CardsGameEngine/inc/Briscola"
-        "${CMAKE_SOURCE_DIR}/../CardsGameEngine/inc/Events"
 )
 
-# Link the dylib
-target_link_libraries(gameSessionTest
-    PRIVATE
-        "${CMAKE_SOURCE_DIR}/../CardsGameEngine/build/libcard_engine.dylib"
-)
-
-# Optional: make sure the executable can find the dylib at runtime (macOS)
-set_target_properties(gameSessionTest PROPERTIES
-    BUILD_RPATH "${CMAKE_SOURCE_DIR}/../CardsGameEngine/build"
-)

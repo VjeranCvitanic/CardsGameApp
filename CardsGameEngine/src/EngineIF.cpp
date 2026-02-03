@@ -5,7 +5,9 @@ std::unique_ptr<BriscolaMatch_NS::BriscolaMatch>
 createBriscolaMatch(EventEmitter& emitter,
                     int numPlayers)
 {
-    Logger::logger_setup("./out/briscola/logs/", nullptr, "./out/event/logs/", DEBUG, true);
+    //Logger::logger_setup("./out/briscola/logs/", nullptr, "./out/event/logs/", DEBUG, true);
+    Logger::logger_setup("./out/gameSession/logs/", nullptr, "./out/event/logs/", DEBUG, true);
+
     std::srand(static_cast<unsigned int>(std::time(nullptr)));
 
     CardsMatch_NS::Players players;
@@ -34,7 +36,8 @@ std::unique_ptr<TressetteMatch_NS::TressetteMatch>
 createTressetteMatch(EventEmitter& emitter,
                     int numPlayers)
 {
-    Logger::logger_setup("./out/tressette/logs/", nullptr, "./out/event/logs/", DEBUG, true);
+    //Logger::logger_setup("./out/tressette/logs/", nullptr, "./out/event/logs/", DEBUG, true);
+    Logger::logger_setup("./out/gameSession/logs/", nullptr, "./out/event/logs/", DEBUG, true);
     std::srand(static_cast<unsigned int>(std::time(nullptr)));
 
     CardsMatch_NS::Players players;

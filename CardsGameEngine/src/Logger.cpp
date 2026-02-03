@@ -16,6 +16,7 @@ bool Logger::is_started = false;
 std::chrono::time_point<std::chrono::high_resolution_clock> Logger::start_time = {};
 std::chrono::time_point<std::chrono::high_resolution_clock> Logger::end_time = {};
 
+
 Logger::~Logger()
 {
     Logger::end();

@@ -6,8 +6,15 @@ package cardsGame;
 service CardsGameServer {
   // A simple RPC
   rpc Connect (ConnectReq) returns (ConnectRsp) {}
+}
+
+service CardsGameSession {
+  rpc SubscribeEvents(PlayerInfo) returns (stream GameEventMsg);
   rpc PlayMove (PlayMoveReq) returns (PlayMoveRsp) {}
-  rpc GameEventStream (GameEventMsg) returns (GameEventMsg) {}
+}
+
+message PlayerInfo {
+  int32 playerId = 1;
 }
 
 // ===========================================================================================
@@ -26,6 +33,11 @@ message ConnectReq {
   string message = 3;
 }
 
+message SuccessfullConn {
+  int32 playerId = 1;
+  string address = 2;
+}
+
 // The response message
 message ConnectRsp {
     enum ConnFailReason {
@@ -36,11 +48,11 @@ message ConnectRsp {
     }
 
     oneof rsp {
-        int32 success_id = 1;
+        SuccessfullConn successMsg = 1;
         ConnFailReason fail_reason = 2;
     }
 
-    string message = 3; // optional extra info
+    optional string message = 3; // optional extra info
 }
 
 // ===========================================================================================
@@ -87,7 +99,7 @@ message Move {
 }
 
 message PlayMoveReq {
-  string playerId = 1;
+  int32 playerId = 1;
   Move move = 2;
   string message = 3;
 }
@@ -111,7 +123,7 @@ message PlayerDealtCardsMsg {
 }
 
 message PlayerPlayedMoveMsg {
-  string playerId = 1;
+  int32 playerId = 1;
   Move move = 2;
 }
 
@@ -206,8 +218,7 @@ message AcussosMsg {
   repeated AcussoMsg acusso = 2;
 }
 
-message GameEventMsg {
-  enum EventType {
+enum EventType {
     INVALID_EVENT = 0;
     PLAYER_DEALT_CARDS_EVENT = 1;
     PLAYER_PLAYED_MOVE_EVENT = 2;
@@ -220,8 +231,9 @@ message GameEventMsg {
     YOUR_TURN_EVENT = 9;
     ACUSSO_EVENT = 10;
     BRISCOLA_LAST_ROUND_EVENT = 11;
-  }
+}
 
+message GameEventMsg {
   int32 playerId = 1;
   EventType eventType = 2;
   oneof eventMsg {

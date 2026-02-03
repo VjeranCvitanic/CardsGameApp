@@ -1,5 +1,6 @@
 #include "CardsMatch.h"
 #include "Logger.h"
+#include "Types.h"
 
 CardsMatch_NS::CardsMatch::CardsMatch(const CardsMatch_NS::MatchState& _matchState, int _numPlayers, const EventEmitter& _eventEmitter) :
     matchState(_matchState), numPlayers(_numPlayers), eventEmitter(_eventEmitter)

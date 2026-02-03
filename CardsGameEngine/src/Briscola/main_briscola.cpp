@@ -34,7 +34,7 @@ int main()
 void parseInput(Move& move, fullPlayerId i)
 {
     std::string input;
-
+ 
     do
     {
         std::cin >> input;

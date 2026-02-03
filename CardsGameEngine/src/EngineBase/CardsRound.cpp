@@ -69,6 +69,7 @@ MoveReturnValue CardsRound_NS::CardsRound::ApplyMove(const Move& move)
     {
         LOG_DEBUG("Move not valid");
         emitMoveRspEvent(move, reason);
+            
         return reason;
     }
 }

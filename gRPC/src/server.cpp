@@ -1,6 +1,10 @@
 #include "Server.h"
 #include <cstddef>
-#include "ProtoToDomain.h"
+#include <string>
+#include <thread>
+#include "GameSession.h"
+#include "Logger.h"
+#include "cardsGame.pb.h"
 
 
 grpc::Status cardsGameServiceImpl::Connect(grpc::ServerContext* context, const cardsGame::ConnectReq* request, cardsGame::ConnectRsp* reply)
@@ -19,59 +23,30 @@ grpc::Status cardsGameServiceImpl::Connect(grpc::ServerContext* context, const c
     }
 
     // Successful connection
+
     int assignedId;
     {
         std::lock_guard<std::mutex> lock(mtx);
         assignedId = nextClientId++;
-        clients[assignedId] = {assignedId, request->name(), 0, .stream = nullptr}; // store client name and assigned ID
+        clients[assignedId] = {assignedId, request->name(), nextSessionId}; // store client name and assigned ID
     }
-    reply->set_success_id(assignedId);
+
+    cardsGame::SuccessfullConn* successConn = new cardsGame::SuccessfullConn();
+
+    successConn->set_playerid(assignedId);
+    successConn->set_address("localhost:" + std::to_string(nextPort)); //TODO full address
+
+    reply->set_allocated_successmsg(successConn);
     reply->set_message("Connected to server");
 
-    std::cout << "Client connected: ID=" << assignedId 
-                << ", name=" << request->name() << std::endl;
+    LOG_DEBUG("Client connected: ID=", assignedId, ", name=", request->name(), " sessionId: ", nextSessionId);
+    unallocatedClients++;
+
+    maybeCreateGameSession();
 
     return grpc::Status::OK;
 }
 
-grpc::Status cardsGameServiceImpl::GameEventStream(
-    const cardsGame::GameEventMsg* request,
-    grpc::ServerReaderWriter<cardsGame::GameEventMsg, cardsGame::GameEventMsg>* readWriter)
-{
-    const std::string& clientName = clients.at(request->playerid()).name; // or some identifier
-
-    {
-        std::lock_guard<std::mutex> lock(mtx);
-        clients.at(request->playerid()).stream = readWriter; // store readerWriter for this client
-    }
-
-    // Optionally, block here if you want to push messages as they come:
-    while (true) {
-        // Wait for events for this client
-        // writer->Write(eventProto);
-    }
-
-    return grpc::Status::OK;
-}
-grpc::
-Status cardsGameServiceImpl::PlayMove(grpc::ServerContext* context, const cardsGame::PlayMoveReq* request, cardsGame::PlayMoveRsp* response) {
-    std::string playerName = request->playerid();
-    {
-        if (!ifClientExists(playerName)) {
-            response->set_moversp(cardsGame::INVALID_PLAYER_NAME);
-            return grpc::Status(grpc::NOT_FOUND, "Player ID not found");
-        }
-    }
-
-    Move move;
-    PlayMoveReqToDomain(*request, move);
-    
-
-    response->set_moversp(cardsGame::MOVE_OK);
-
-    return grpc::Status::OK;
-}
-    
 bool cardsGameServiceImpl::ifClientExists(const std::string& name) {
     std::lock_guard<std::mutex> lock(mtx);
     for (const auto& [id, client] : clients) {
@@ -82,8 +57,8 @@ bool cardsGameServiceImpl::ifClientExists(const std::string& name) {
     return false;
 }
 
-void cardsGameServiceImpl::RunServer() {
-    std::string server_address("0.0.0.0:50051");
+void cardsGameServiceImpl::RunListener() {
+    std::string server_address(LISTENER_ADDRESS);
     cardsGameServiceImpl service;
 
     grpc::ServerBuilder builder;
@@ -96,3 +71,34 @@ void cardsGameServiceImpl::RunServer() {
     server->Wait();
 }
 
+bool cardsGameServiceImpl::maybeCreateGameSession() {
+    if(unallocatedClients == NUM_PLAYERS_IN_SESSION) {
+        std::cout << "Creating new session" << std::endl;
+        GameSession_NS::GameSession* newSession = new GameSession_NS::GameSession(nextPort, nextSessionId, 
+            {clients[nextClientId-1].id, clients[nextClientId-2].id}, 
+            1, cardsGame::GameType::BRISCOLA);
+        gameSessions[nextSessionId] = newSession;
+
+        std::thread([newSession, this]() {
+            newSession->StartSession();  // assuming GameSession has a run() method
+            // Optionally clean up after session ends
+            std::cout << "Session ended, cleaning up." << std::endl;
+            delete newSession;
+            // If you want, remove it from map:
+            gameSessions.erase(nextSessionId); 
+        }).detach(); // detach so it runs independently
+        nextSessionId++;
+        unallocatedClients = 0;
+        nextPort++;
+
+        return true;
+    }
+
+    return false;
+}
+
+int main() {
+    cardsGameServiceImpl server;
+    server.RunListener();
+    return 0;
+}

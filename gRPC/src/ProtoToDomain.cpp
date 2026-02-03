@@ -10,7 +10,7 @@ void toDomainEvent(const cardsGame::GameEventMsg& msg) {
 void PlayMoveReqToDomain(const cardsGame::PlayMoveReq& req, Move& move)
 {
     // Convert player ID
-    move.playerId.second = atoi(req.playerid().c_str());
+    move.playerId.second = req.playerid();
     move.playerId.first = move.playerId.second % 2;
 
     // Convert card

@@ -22,6 +22,7 @@ namespace CardsMatch_NS
     {
     public:
         CardsMatch(const MatchState& matchState, int numPlayers, const EventEmitter& eventEmitter);
+        virtual ~CardsMatch() = default;
         virtual bool IsFinished() = 0;
         virtual void startNewGame() = 0;
         MoveReturnValue ApplyMove(const Move&);

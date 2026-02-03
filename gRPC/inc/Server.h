@@ -5,30 +5,34 @@
 #include <mutex>
 #include <unordered_map>
 
+#define LISTENER_ADDRESS "0.0.0.0:50051"
+
+#define NUM_PLAYERS_IN_SESSION 2 // TODO
+
 struct Client {
     int id;
     std::string name;
     int sessionId;
-    grpc::ServerReaderWriter<cardsGame::GameEventMsg, cardsGame::GameEventMsg>* stream;
 };
 
 class cardsGameServiceImpl final : public cardsGame::CardsGameServer::Service {
-    std::unordered_map<int, Client> clients;
-    std::unordered_map<int, GameSession*> gameSessions;
-    std::mutex mtx;
-    int nextClientId = 1;
-    int nextSessionId = 1;
 public:
-    void RunServer();
+    cardsGameServiceImpl() = default;
+
     grpc::Status Connect(grpc::ServerContext* context, const cardsGame::ConnectReq* request, cardsGame::ConnectRsp* reply) override;
 
-    grpc::Status GameEventStream(
-        const cardsGame::GameEventMsg* request,
-        grpc::ServerReaderWriter<cardsGame::GameEventMsg, cardsGame::GameEventMsg>* readWriter);
-
-    grpc::Status PlayMove(grpc::ServerContext* context, const cardsGame::PlayMoveReq* request, cardsGame::PlayMoveRsp* response) override;
+    void RunListener();
 
 private:
     bool ifClientExists(const std::string& name);
+    bool maybeCreateGameSession();
+
+    std::unordered_map<int, Client> clients;
+    std::unordered_map<int, GameSession_NS::GameSession*> gameSessions;
+    std::mutex mtx;
+    int unallocatedClients = 0;
+    int nextClientId = 1;
+    int nextSessionId = 1;
+    int nextPort = 50052;
 };
 
