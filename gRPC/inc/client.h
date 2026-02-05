@@ -10,7 +10,7 @@ public:
         : lobbyStub_(cardsGame::CardsGameServer::NewStub(channel)), name(clientName) {}
 
     std::string Connect(const std::string& name, cardsGame::GameType gameType);
-    std::string PlayMove(cardsGame::MoveRsp& rsp);
+    std::string PlayMove(cardsGame::Move*);
     void StartClient();
     bool WaitForSessionStarted(grpc::ClientContext& sessionContext, std::unique_ptr<grpc::ClientReader<cardsGame::GameEventMsg>>& reader);
 
@@ -20,4 +20,7 @@ private:
     int id;
     std::string name;
     std::string gameSessionAddress;
+
+    void processEvent(const cardsGame::GameEventMsg& event);
+    void processMyTurn(const cardsGame::GameEventMsg& event);
 };

@@ -16,15 +16,30 @@ struct Client {
     //stream
 };
 
+class PlayerConnection {
+public:
+    explicit PlayerConnection(grpc::ServerWriter<cardsGame::GameEventMsg>* w)
+        : writer(w) {}
+
+    bool send(const cardsGame::GameEventMsg& msg) {
+        std::lock_guard<std::mutex> lock(mtx);
+        return writer && writer->Write(msg);
+    }
+
+private:
+    grpc::ServerWriter<cardsGame::GameEventMsg>* writer; // non-owning
+    std::mutex mtx;
+};
+
 class GameSession : public cardsGame::CardsGameSession::Service, public EventSink
 {
 public:
     GameSession(int Port, int sessionId, std::vector<int> _playersIdList, int _numMatches = 1, cardsGame::GameType _gameType = cardsGame::GameType::BRISCOLA)
         : port(Port), sessionId(sessionId), numMatchesToPlay(_numMatches), cntMatchesPlayed(0), teamWins{0, 0}, gameType(_gameType)
         {
-            for(size_t i = 0; i < _playersIdList.size(); i++) {
+            /*for(size_t i = 0; i < _playersIdList.size(); i++) {
                 players[i] = _playersIdList[i];
-            }
+            }*/
         }
 
     void StartSession();
@@ -36,6 +51,9 @@ public:
 
 private:
     std::unique_ptr<CardsMatch_NS::CardsMatch> match;
+
+    std::unordered_map<int, std::shared_ptr<PlayerConnection>> connections;
+    std::mutex connectionsMutex;
 
     int port;
     cardsGame::GameType gameType;
@@ -76,5 +94,13 @@ private:
 
 
     void onEvent(const GameEvent& event) override;
+
+    void dealCards(const PlayerDealtCardsEvent& event);
+    void startRound(const StartRoundEvent& event);
+    void startGame(const StartGameEvent& event);
+    void startBriscolaGame(const StartBriscolaGameEvent& event);
+    void startMatch(const StartMatchEvent& event);
+    void yourTurn(const YourTurnEvent& event);
+    void playerPlayedMoveEvent(const PlayerPlayedMoveEvent& event);
 };
 }

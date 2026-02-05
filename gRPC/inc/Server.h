@@ -31,7 +31,7 @@ private:
     std::unordered_map<int, GameSession_NS::GameSession*> gameSessions;
     std::mutex mtx;
     int unallocatedClients = 0;
-    int nextClientId = 1;
+    int nextClientId = 0;
     int nextSessionId = 1;
     int nextPort = 50052;
 };

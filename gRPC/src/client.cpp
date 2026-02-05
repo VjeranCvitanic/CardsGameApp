@@ -1,6 +1,8 @@
 #include "client.h"
 #include "cardsGame.grpc.pb.h"
 #include "cardsGame.pb.h"
+#include <iostream>
+#include <ostream>
 #include <unistd.h>
 
 
@@ -31,42 +33,34 @@ std::string cardsGameClient::Connect(const std::string& name, cardsGame::GameTyp
 
 bool cardsGameClient::WaitForSessionStarted(grpc::ClientContext& sessionContext, std::unique_ptr<grpc::ClientReader<cardsGame::GameEventMsg>>& reader) {    
     // Optional: Add deadline to avoid hanging
-    sessionContext.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(10));
+    sessionContext.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(100));
     sessionContext.set_wait_for_ready(true);
     cardsGame::PlayerInfo playerInfo;
     playerInfo.set_playerid(id);
     
     cardsGame::GameEventMsg sessionReply;
     grpc::Status status;
-    for (int i = 0; i < 10; ++i) {        
+    while(true) {        
         reader = sessionStub_->SubscribeEvents(&sessionContext, playerInfo); 
         
         if (reader && reader->Read(&sessionReply)) {
             if (sessionReply.eventtype() == cardsGame::EventType::START_MATCH_EVENT) {
                 return true;
         }
-        sleep(1);
-    }
-    std::cout << "Session started successfully" << std::endl;
-    return true;
+        usleep(1000000);
+        }
     }
 
     return false;
 }
 
-std::string cardsGameClient::PlayMove(cardsGame::MoveRsp& rsp) {
-    cardsGame::Card card;
-    card.set_color(cardsGame::CardColor::DENARI);
-    card.set_number(cardsGame::CardNumber::CAVALLO);
-    cardsGame::Move move;
-    move.set_allocated_card(&card);
-    move.set_call(cardsGame::Call::NO_CALL);
+std::string cardsGameClient::PlayMove(cardsGame::Move* move) {
     cardsGame::PlayMoveRsp moveResp;
     grpc::ClientContext moveCtx;
 
     cardsGame::PlayMoveReq request;
     request.set_playerid(id);
-    request.set_allocated_move(&move);
+    request.set_allocated_move(move);
 
     if(!sessionStub_) {
         return "Session stub is null";
@@ -103,13 +97,18 @@ void cardsGameClient::StartClient() {
 
             // TODO process Event function
             std::cout << "[EVENT] " << event.DebugString() << std::endl;
+            processEvent(event);
         }
 
         grpc::Status status = reader->Finish();
         if(!status.ok()) {
             std::cerr << "Event stream closed: " << status.error_message() << std::endl;
         }
+        else {
+            std::cout << "Event stream finished." << std::endl;
+        }
     });
+
     eventThread.join();
 }
 
@@ -135,4 +134,37 @@ int main(int argc, char** argv) {
     //lobbyClient.PlayMove(rsp);
     
     return 0;
+}
+
+void cardsGameClient::processEvent(const cardsGame::GameEventMsg& event)
+{
+    if(event.eventtype() == cardsGame::YOUR_TURN_EVENT)
+    {
+        processMyTurn(event);
+    }
+    else {
+        std::cout << "Some event, ignore for now..." << std::endl;
+    }
+}
+
+void cardsGameClient::processMyTurn(const cardsGame::GameEventMsg& event)
+{
+    std::cout << "My turn YEAH!" << std::endl;
+
+    auto& hand = event.yourturn().hand();
+
+    for(auto& c : hand)
+    {
+        std::cout << c.color() << " " << c.number() << std::endl;
+    }
+
+    cardsGame::Move* move = new cardsGame::Move();
+    cardsGame::Card* card = new cardsGame::Card();
+    card->set_color(hand[0].color());
+    card->set_number(hand[0].number());
+
+    move->set_allocated_card(card);
+    move->set_call(cardsGame::NO_CALL);
+    
+    PlayMove(move);
 }

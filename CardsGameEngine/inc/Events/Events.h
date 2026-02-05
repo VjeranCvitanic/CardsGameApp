@@ -77,6 +77,7 @@ struct StartMatchEvent : BroadcastEvent
 {
     fullPlayerId firstToPlayId;
     GameType gameType;
+    // TODO missing teammate id
 
     explicit StartMatchEvent(fullPlayerId pid, GameType _gameType)
         : firstToPlayId(pid),

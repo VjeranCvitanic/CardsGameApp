@@ -179,7 +179,7 @@ message MatchOverMsg {
 message YourTurnMsg {
   int32 playerId = 1;
   repeated Card hand = 2;
-  repeated Card cardsPlayedInRound = 3;
+  repeated Card cardsPlayedInRound = 3; // TODO - this has to be moves
   optional CardColor strongColor = 4; // briscola only
   repeated Card legalMoves = 5;
 }
