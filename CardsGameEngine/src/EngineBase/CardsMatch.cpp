@@ -41,6 +41,8 @@ MoveReturnValue CardsMatch_NS::CardsMatch::PostMove(MoveReturnValue gameRetVal)
             return Finish;
         }
         startNewGame();
+
+        return Ok;
     }
 
     return gameRetVal;

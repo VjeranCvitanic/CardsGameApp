@@ -1,6 +1,7 @@
 #include "client.h"
 #include "cardsGame.grpc.pb.h"
 #include "cardsGame.pb.h"
+#include <chrono>
 #include <iostream>
 #include <ostream>
 #include <unistd.h>
@@ -33,7 +34,7 @@ std::string cardsGameClient::Connect(const std::string& name, cardsGame::GameTyp
 
 bool cardsGameClient::WaitForSessionStarted(grpc::ClientContext& sessionContext, std::unique_ptr<grpc::ClientReader<cardsGame::GameEventMsg>>& reader) {    
     // Optional: Add deadline to avoid hanging
-    sessionContext.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(100));
+    sessionContext.set_deadline(std::chrono::system_clock::now() + std::chrono::minutes(30));
     sessionContext.set_wait_for_ready(true);
     cardsGame::PlayerInfo playerInfo;
     playerInfo.set_playerid(id);
@@ -54,8 +55,8 @@ bool cardsGameClient::WaitForSessionStarted(grpc::ClientContext& sessionContext,
     return false;
 }
 
-std::string cardsGameClient::PlayMove(cardsGame::Move* move) {
-    cardsGame::PlayMoveRsp moveResp;
+void cardsGameClient::PlayMove(cardsGame::Move* move) {
+    ::google::protobuf::Empty* response;
     grpc::ClientContext moveCtx;
 
     cardsGame::PlayMoveReq request;
@@ -63,23 +64,18 @@ std::string cardsGameClient::PlayMove(cardsGame::Move* move) {
     request.set_allocated_move(move);
 
     if(!sessionStub_) {
-        return "Session stub is null";
+        std::cout << "Session stub is null" << std::endl;
     }
-    grpc::Status s = sessionStub_->PlayMove(&moveCtx, request, &moveResp);
+    grpc::Status s = sessionStub_->PlayMove(&moveCtx, request, response);
 
-    if(s.ok()) {
-        std::cout << "Move response: " << moveResp.DebugString() << std::endl;
-    } else {
+    if(!s.ok()) {
         std::cerr << "PlayMove failed: " << s.error_message() << std::endl;
     }
-
-    return moveResp.DebugString();
 }
 
 void cardsGameClient::StartClient() {
 
     Connect(name, cardsGame::GameType::BRISCOLA);
-    std::cout << "return: " << gameSessionAddress << std::endl;
 
     std::thread eventThread([&]() {
         grpc::ClientContext context;
@@ -90,7 +86,6 @@ void cardsGameClient::StartClient() {
         WaitForSessionStarted(context, reader);
 
         cardsGame::GameEventMsg event;
-        std::cout << "before loop" << std::endl;
 
         while(reader->Read(&event)) {
             std::cout << "IN LOOP" << std::endl;
@@ -98,6 +93,7 @@ void cardsGameClient::StartClient() {
             // TODO process Event function
             std::cout << "[EVENT] " << event.DebugString() << std::endl;
             processEvent(event);
+            //getchar();
         }
 
         grpc::Status status = reader->Finish();
@@ -142,8 +138,9 @@ void cardsGameClient::processEvent(const cardsGame::GameEventMsg& event)
     {
         processMyTurn(event);
     }
-    else {
-        std::cout << "Some event, ignore for now..." << std::endl;
+    else if(event.eventtype() == cardsGame::GAME_OVER_EVENT)
+    {
+        //getchar();
     }
 }
 

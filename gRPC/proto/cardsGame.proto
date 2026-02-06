@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+import "google/protobuf/empty.proto";
+
 package cardsGame;
 
 // The service definition
@@ -10,7 +12,7 @@ service CardsGameServer {
 
 service CardsGameSession {
   rpc SubscribeEvents(PlayerInfo) returns (stream GameEventMsg);
-  rpc PlayMove (PlayMoveReq) returns (PlayMoveRsp) {}
+  rpc PlayMove (PlayMoveReq) returns (google.protobuf.Empty);
 }
 
 message PlayerInfo {
@@ -113,8 +115,9 @@ enum MoveRsp {
   CANT_CALL_IF_NOT_FIRST_OF_HAND = 5;
 }
 
-message PlayMoveRsp {
-  MoveRsp moveRsp = 1;
+message PlayMoveRspMsg {
+  int32 playerId = 1;
+  MoveRsp moveRsp = 2;
 }
 
 message PlayerDealtCardsMsg {
@@ -164,15 +167,16 @@ message GameOverMsg {
 }
 
 message MatchScore {
+  int32 teamId = 1;
   oneof value {
-    Points points = 1;       // tressette
-    int32 numWonGames = 2;   // briscola
+    Points points = 2;       // tressette
+    int32 numWonGames = 3;   // briscola
   }
 }
 
 message MatchOverMsg {
-  int32 teamWinneId = 1;
-  MatchScore score = 2;
+  int32 teamWinnerId = 1;
+  repeated MatchScore score = 2;
 }
 
 
@@ -231,6 +235,7 @@ enum EventType {
     YOUR_TURN_EVENT = 9;
     ACUSSO_EVENT = 10;
     BRISCOLA_LAST_ROUND_EVENT = 11;
+    MOVE_RSP_EVENT = 12;
 }
 
 message GameEventMsg {
@@ -247,5 +252,6 @@ message GameEventMsg {
     MatchOverMsg matchOver = 10;
     YourTurnMsg yourTurn = 11;
     AcussosMsg acussoMsg = 12;
+    PlayMoveRspMsg playMoveRsp = 13; // TODO - should this be in req stream or here
   }
 }

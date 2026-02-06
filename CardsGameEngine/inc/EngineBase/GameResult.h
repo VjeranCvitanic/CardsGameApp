@@ -12,7 +12,7 @@ namespace CardsGame_NS
             points(0)
         {}
 
-        PlayerId winnerId;
+        TeamId winnerId;
         std::unordered_map<TeamId, Points> points;
     };
 }

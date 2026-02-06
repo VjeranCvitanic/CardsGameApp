@@ -74,8 +74,7 @@ target_include_directories(proto_lib
 # ---- Server
 add_executable(server 
     src/server.cpp
-    src/GameSession.cpp
-    src/ProtoToDomain.cpp)
+    src/GameSession.cpp)
 target_link_libraries(server PRIVATE proto_lib)
 
 target_include_directories(server

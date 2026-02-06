@@ -43,7 +43,7 @@ public:
         }
 
     void StartSession();
-    grpc::Status PlayMove(grpc::ServerContext* context, const cardsGame::PlayMoveReq* request, cardsGame::PlayMoveRsp* response) override;
+    grpc::Status PlayMove(grpc::ServerContext* context, const cardsGame::PlayMoveReq* request, ::google::protobuf::Empty* response) override;
     grpc::Status SubscribeEvents(grpc::ServerContext* context, 
                                 const cardsGame::PlayerInfo* request,
                                 grpc::ServerWriter<cardsGame::GameEventMsg>* writer) override;
@@ -69,7 +69,7 @@ private:
 
     std::unordered_map<int, int> players; // player´s server id to player´s session id (0-3)
 
-    void ApplyMove(const Move& move);
+    MoveReturnValue ApplyMove(const Move& move);
     bool IsSessionOver() const;
     int AddPlayer(int playerId);
     void PrintResults();
@@ -102,5 +102,15 @@ private:
     void startMatch(const StartMatchEvent& event);
     void yourTurn(const YourTurnEvent& event);
     void playerPlayedMoveEvent(const PlayerPlayedMoveEvent& event);
+    void endRound(const RoundOverEvent& event);
+    void endGame(const GameOverEvent& event);
+    void endMatch(const MatchOverEvent& event);
+    void moveRsp(const MoveResponseEvent& event);
+
+
+    int playerIdToSessionPlayerId(int playerId);
+
+    void PlayMoveReqToDomain(const cardsGame::PlayMoveReq& req, Move& move);
+    void MoveRspToProto(const MoveReturnValue& move, cardsGame::MoveRsp& moveValidity);
 };
 }

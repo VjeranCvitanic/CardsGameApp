@@ -76,6 +76,7 @@ MoveReturnValue CardsRound_NS::CardsRound::ApplyMove(const Move& move)
 
 void CardsRound_NS::CardsRound::playMove(const Move& move)
 {
+    LOG_INFO("Move: ", Cards::CardToString(move.card), " (", move.call, ")");
     roundState.playedMovesInRound.push_back(move);
 }
 

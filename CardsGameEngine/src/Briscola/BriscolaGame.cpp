@@ -31,7 +31,7 @@ void BriscolaGame_NS::BriscolaGame::updateGameResult()
 
 bool BriscolaGame_NS::BriscolaGame::IsFinished()
 {
-    if(gameState.roundCnt >= DECK_SIZE/handSize)
+    if(gameState.roundCnt > DECK_SIZE/handSize)
         return true;
     return false;
 }

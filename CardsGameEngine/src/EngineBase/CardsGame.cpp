@@ -112,7 +112,7 @@ MoveReturnValue CardsGame_NS::CardsGame::postMove(MoveReturnValue roundRetVal)
         startNewRound();
     }
 
-    return roundRetVal;
+    return Ok;
 }
 
 MoveReturnValue CardsGame_NS::CardsGame::ApplyMove(const Move& move)
