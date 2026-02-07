@@ -530,15 +530,21 @@ grpc::Status GameSession_NS::GameSession::SubscribeEvents(grpc::ServerContext* c
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
 
+    {
+        std::lock_guard<std::mutex> lock(connectionsMutex);
+        connections.erase(sessionPlayerId);
+        players.erase(sessionPlayerId);
+    }
+
+    std::cout << "Session with player " << playerId << " over" << std::endl;
+
 
     return grpc::Status::OK;    
 }
 
 int GameSession_NS::GameSession::playerIdToSessionPlayerId(int playerId)
 {
-    std::cout << "PlayerId: " << playerId << std::endl;
     for (const auto& pair : players) {
-        std::cout << "Pair: " << pair.first << ", " << pair.second << std::endl;
         if (pair.second == playerId) {
             return pair.first;
         }

@@ -3,12 +3,13 @@
 #include "cardsGame.pb.h"
 #include <chrono>
 #include <iostream>
+#include <memory>
 #include <ostream>
 #include <unistd.h>
 
 
 
-std::string cardsGameClient::Connect(const std::string& name, cardsGame::GameType gameType) {
+bool cardsGameClient::Connect(const std::string& name, cardsGame::GameType gameType) {
     cardsGame::ConnectReq request;
     request.set_name(name);
     request.set_gametype(gameType);
@@ -26,9 +27,10 @@ std::string cardsGameClient::Connect(const std::string& name, cardsGame::GameTyp
         sessionStub_ = std::unique_ptr<cardsGame::CardsGameSession::Stub>(cardsGame::CardsGameSession::NewStub(
             grpc::CreateCustomChannel(gameSessionAddress, grpc::InsecureChannelCredentials(), args)
         ));
-        return reply.message();
+        return true;
     } else {
-        return "RPC failed";
+         std::cout << "RPC failed" << status.error_message() << std::endl;
+;        return false;
     }
 }
 
@@ -55,18 +57,18 @@ bool cardsGameClient::WaitForSessionStarted(grpc::ClientContext& sessionContext,
     return false;
 }
 
-void cardsGameClient::PlayMove(cardsGame::Move* move) {
-    ::google::protobuf::Empty* response;
+void cardsGameClient::PlayMove(std::unique_ptr<cardsGame::Move> move) {
+    google::protobuf::Empty response;
     grpc::ClientContext moveCtx;
 
     cardsGame::PlayMoveReq request;
     request.set_playerid(id);
-    request.set_allocated_move(move);
+    request.set_allocated_move(move.release());
 
     if(!sessionStub_) {
         std::cout << "Session stub is null" << std::endl;
     }
-    grpc::Status s = sessionStub_->PlayMove(&moveCtx, request, response);
+    grpc::Status s = sessionStub_->PlayMove(&moveCtx, request, &response);
 
     if(!s.ok()) {
         std::cerr << "PlayMove failed: " << s.error_message() << std::endl;
@@ -74,8 +76,11 @@ void cardsGameClient::PlayMove(cardsGame::Move* move) {
 }
 
 void cardsGameClient::StartClient() {
-
-    Connect(name, cardsGame::GameType::BRISCOLA);
+    if(!Connect(name, cardsGame::GameType::BRISCOLA))
+    {
+        std::cout << "Failed to connect" << std::endl;
+        return;
+    }
 
     std::thread eventThread([&]() {
         grpc::ClientContext context;
@@ -109,25 +114,18 @@ void cardsGameClient::StartClient() {
 }
 
 int main(int argc, char** argv) {
-    if(argc != 2) {
-        std::cout << "Usage: client <name>" << std::endl;
+    if(argc != 3) {
+        std::cout << "Usage: client <name> <human|ai>" << std::endl;
         return 1;
     }
 
     std::string name = argv[1];
+    bool ai = std::string(argv[2]) == "ai";
 
     cardsGameClient lobbyClient(grpc::CreateChannel(
-        "localhost:50051", grpc::InsecureChannelCredentials()), name);
+        "localhost:50051", grpc::InsecureChannelCredentials()), name, ai);
 
     lobbyClient.StartClient();
-
-    //cardsGameClient lobbyClient2(grpc::CreateChannel(
-    //    "localhost:50051", grpc::InsecureChannelCredentials()), "player2");
-
-    //lobbyClient2.Connect("player2", cardsGame::GameType::BRISCOLA);
-
-    //cardsGame::MoveRsp rsp;
-    //lobbyClient.PlayMove(rsp);
     
     return 0;
 }
@@ -148,6 +146,16 @@ void cardsGameClient::processMyTurn(const cardsGame::GameEventMsg& event)
 {
     std::cout << "My turn YEAH!" << std::endl;
 
+    if(!isAi)
+    {
+        std::unique_ptr<cardsGame::Move> move = std::make_unique<cardsGame::Move>();
+        parseInput(move.get(), event.yourturn().playerid());
+
+        PlayMove(std::move(move));
+
+        return;
+    }
+
     auto& hand = event.yourturn().hand();
 
     for(auto& c : hand)
@@ -155,13 +163,93 @@ void cardsGameClient::processMyTurn(const cardsGame::GameEventMsg& event)
         std::cout << c.color() << " " << c.number() << std::endl;
     }
 
-    cardsGame::Move* move = new cardsGame::Move();
-    cardsGame::Card* card = new cardsGame::Card();
+    std::unique_ptr<cardsGame::Move> move = std::make_unique<cardsGame::Move>();
+    std::unique_ptr<cardsGame::Card> card = std::make_unique<cardsGame::Card>();
     card->set_color(hand[0].color());
     card->set_number(hand[0].number());
 
-    move->set_allocated_card(card);
+    move->set_allocated_card(card.release());
     move->set_call(cardsGame::NO_CALL);
     
-    PlayMove(move);
+    PlayMove(std::move(move));
+}
+
+int cardsGameClient::parse(std::string input, cardsGame::Move* move, int playerId)
+{
+    cardsGame::CardColor color;
+    cardsGame::CardNumber number = cardsGame::INVALID_NUMBER;
+    std::unique_ptr<cardsGame::Card> card = std::make_unique<cardsGame::Card>();
+    cardsGame::Call call = cardsGame::NO_CALL;
+
+    if (input.size() < 2 || input.size() > 4)
+    {
+        return -1;
+    } 
+
+    switch(std::toupper(input[0]))
+    {
+        case 'S' :
+            color = cardsGame::SPADE;
+            break;
+        case 'D' :
+            color = cardsGame::DENARI;
+            break;
+        case 'B' :
+            color = cardsGame::BASTONI;
+            break;
+        case 'C' :
+            color = cardsGame::COPPE;
+            break;
+        default:
+            return -2;
+    }
+
+    for (size_t i = 1; i < input.size(); ++i) {
+        if (std::isdigit(input[i]))
+        {
+            number = static_cast<cardsGame::CardNumber>(number * 10 + (input[i] - '0'));
+            if(number > 10)
+            {
+                number = static_cast<cardsGame::CardNumber>(number - 3);
+            }
+        }
+        else
+        {
+            switch(std::toupper(input[i]))
+            {
+                case 'B' :
+                    call = cardsGame::BUSSO;
+                    break;
+                case 'S' :
+                    call = cardsGame::STRISCIO;
+                    break;
+                case 'Q' :
+                    call = cardsGame::CON_QUESTA_BASTA;
+                    break;
+                default:
+                    call = cardsGame::NO_CALL;
+                    break;
+            }
+            i = input.size(); // exit loop
+        }
+    }
+
+    card->set_color(color);
+    card->set_number(number);
+
+    move->set_call(cardsGame::NO_CALL);
+    move->set_allocated_card(card.release());
+
+    return 0;
+}
+
+void cardsGameClient::parseInput(cardsGame::Move* move, int i)
+{
+    std::string input;
+
+    do
+    {
+        std::cin >> input;
+        getchar();
+    }while(parse(input, move, i) != 0);
 }

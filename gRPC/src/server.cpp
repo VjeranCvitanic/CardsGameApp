@@ -86,6 +86,8 @@ bool cardsGameServiceImpl::maybeCreateGameSession() {
             delete newSession;
             // If you want, remove it from map:
             gameSessions.erase(nextSessionId); 
+            clients.erase(nextClientId-1);
+            clients.erase(nextClientId-2);
         }).detach(); // detach so it runs independently
         nextSessionId++;
         unallocatedClients = 0;
