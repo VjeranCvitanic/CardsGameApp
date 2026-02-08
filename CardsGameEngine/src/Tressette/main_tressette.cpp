@@ -18,7 +18,6 @@ int main()
     CardsMatch_NS::Players players = {{0, 0}, {1, 1}};
 
     CardsMatch_NS::MatchState matchState({0, 0}, players);
-    //BriscolaMatch_NS::BriscolaMatch match(matchState, 2, eventEmitter);
     TressetteMatch_NS::TressetteMatch match(matchState, 2, eventEmitter);
 
     Move move;

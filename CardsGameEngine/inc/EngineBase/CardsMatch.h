@@ -23,19 +23,23 @@ namespace CardsMatch_NS
     public:
         CardsMatch(const MatchState& matchState, int numPlayers, const EventEmitter& eventEmitter);
         virtual ~CardsMatch() = default;
-        virtual bool IsFinished() = 0;
-        virtual void startNewGame() = 0;
         MoveReturnValue ApplyMove(const Move&);
-        MatchState matchState;
-        MatchResult matchResult;
+
+        MatchResult GetMatchResult() const { return matchResult; }
+
     protected:
         const EventEmitter& eventEmitter;
         std::unique_ptr<CardsGame_NS::CardsGame> currGame;
         int numPlayers;
+        MatchState matchState;
+        MatchResult matchResult;
 
         virtual void InitMatch() = 0;
-        virtual void updateMatchResult() = 0;
         void EndMatch();
+
+        virtual void updateMatchResult() = 0;
         MoveReturnValue PostMove(MoveReturnValue gameRetVal);
+        virtual void startNewGame() = 0;
+        virtual bool IsFinished() = 0;
     };
 }

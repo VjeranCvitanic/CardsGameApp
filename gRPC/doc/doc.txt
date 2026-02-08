@@ -1,0 +1,18 @@
+======================== START INSTRUCTIONS ========================
+
+1) cd gRPC
+2) cmake configure (vsCode - alt+shift+p)
+3) cmake build
+
+4) start server: ./build/server
+5) start clients (for starting template clients: ./build/client <name> <ai/human>)
+
+ai client - plays random move
+human client -
+    provides human cli (example of moves: B4 = 4 of Bastoni; C13 = King of coppe)
+    each event is followed by getchar() for event readability (i.e. press ENTER after each received event)
+
+
+=========================== OTHER INFO =============================
+Engine logs (for troubleshooting) are in gRPC/out/gameSession/logs/
+

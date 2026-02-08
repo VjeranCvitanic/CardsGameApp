@@ -95,10 +95,12 @@ void cardsGameClient::StartClient() {
         while(reader->Read(&event)) {
             std::cout << "IN LOOP" << std::endl;
 
-            // TODO process Event function
             std::cout << "[EVENT] " << event.DebugString() << std::endl;
             processEvent(event);
-            //getchar();
+            if(isAi == false)
+            {
+                getchar();
+            }
         }
 
         grpc::Status status = reader->Finish();
@@ -144,7 +146,7 @@ void cardsGameClient::processEvent(const cardsGame::GameEventMsg& event)
 
 void cardsGameClient::processMyTurn(const cardsGame::GameEventMsg& event)
 {
-    std::cout << "My turn YEAH!" << std::endl;
+    std::cout << "My turn!" << std::endl;
 
     if(!isAi)
     {

@@ -44,19 +44,18 @@ namespace CardsGame_NS
         void EndGame();
         virtual bool IsFinished() = 0;
 
+        virtual void updateGameResult() = 0;
+        virtual void startNewRound() = 0;
+
         CardSet drawCards(int8_t numCards);
 
         void dealCards(int8_t numCards);
         void dealCards(int8_t numCards, std::vector<CardSet>&);
 
         MoveReturnValue postMove(MoveReturnValue roundRetVal);
-
-        virtual void updateGameResult() = 0;
-        virtual void startNewRound() = 0;
+        virtual void postDealtCards(const std::vector<CardSet>& cards);
 
         virtual bool isLastRound();
-
-        virtual void postDealtCards(const std::vector<CardSet>& cards);
     private:
         void dealCardsImpl(int8_t numCards, std::vector<CardSet>* out);
     };

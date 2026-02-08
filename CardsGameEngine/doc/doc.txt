@@ -1,3 +1,4 @@
 TODO - translation between proto and domain
 TODO - client disconnects before session starts
 TODO - remove manual ptrs from gamesession
+TODO - client se spaja ovako -> ./build/client <name> <gameType> <numPlayers> *<ai/human>*

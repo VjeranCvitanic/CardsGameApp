@@ -464,7 +464,7 @@ MoveReturnValue GameSession_NS::GameSession::ApplyMove(const Move& move) {
     if(matchRetVal == Finish)
     {
         cntMatchesPlayed++;
-        int winningTeam = match->matchResult.winnerId;
+        int winningTeam = match->GetMatchResult().winnerId;
         teamWins[winningTeam]++;
         std::cout << "Match finished! Winning team: " << winningTeam << std::endl;
     }

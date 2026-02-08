@@ -38,6 +38,7 @@ bool BriscolaGame_NS::BriscolaGame::IsFinished()
 
 void BriscolaGame_NS::BriscolaGame::startNewRound()
 {
+    LOG_DEBUG("");
     if(numPlayers == Four && gameState.roundCnt == DECK_SIZE/handSize)
     {
         for(auto& p : gameState.players)

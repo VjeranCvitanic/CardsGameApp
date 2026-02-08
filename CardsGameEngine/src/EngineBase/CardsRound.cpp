@@ -1,6 +1,7 @@
 #include "CardsRound.h"
 #include "Cards.h"
 #include "Logger.h"
+#include "Types.h"
 
 CardsRound_NS::CardsRound::CardsRound(RoundRules& rules, const RoundState& _state, int _handSize, int _numPlayers, const EventEmitter& _eventEmitter) :
     roundRules(rules),
@@ -25,6 +26,7 @@ CardsRound_NS::RoundState::RoundState(fullPlayerId _nextToPlayId, const Players&
     firstToPlayId(_nextToPlayId),
     players(_players),
     playedMovesInRound({}),
+    strongColor(NoColor),
     moveConstraints({})
 {
     LOG_DEBUG("RoundState ctor");

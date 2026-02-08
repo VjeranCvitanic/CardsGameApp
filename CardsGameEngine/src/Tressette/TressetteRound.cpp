@@ -22,7 +22,10 @@ void TressetteRound_NS::TressetteRound::postMoveSetup(const Move& move)
 {
     CardsRound_NS::CardsRound::postMoveSetup(move);
     if(roundState.playedMovesInRound.size() == 1)
+    {
         roundState.moveConstraints.colorToPlay = Cards::getColor(move.card);
+        roundState.strongColor = Cards::getColor(move.card);
+    }
     if(move.call == ConQuestaBasta)
         bastaCalled = move.playerId;
 }
