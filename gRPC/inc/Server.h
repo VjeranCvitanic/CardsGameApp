@@ -7,12 +7,21 @@
 
 #define LISTENER_ADDRESS "0.0.0.0:50051"
 
-#define NUM_PLAYERS_IN_SESSION 2 // TODO
+struct GameFormat {
+    cardsGame::GameType gameType;
+    cardsGame::SingleOrMulti SingleOrMulti;
+};
 
 struct Client {
     int id;
     std::string name;
+    std::vector<GameFormat> gameFormats;
     int sessionId;
+
+    Client(int _id, std::string _name, std::vector<GameFormat> _gameFormats, int _sessionId)
+        : id(_id), name(_name),
+          gameFormats(_gameFormats),
+          sessionId(_sessionId) {};
 };
 
 class cardsGameServiceImpl final : public cardsGame::CardsGameServer::Service {
@@ -25,12 +34,16 @@ public:
 
 private:
     bool ifClientExists(const std::string& name);
-    bool maybeCreateGameSession();
+    bool maybeCreateGameSession(GameFormat format);
+    void addClientToWaitingLists(Client c);
+    void removeClientFromWaitingLists(Client c);
 
     std::unordered_map<int, Client> clients;
     std::unordered_map<int, GameSession_NS::GameSession*> gameSessions;
-    std::mutex mtx;
-    int unallocatedClients = 0;
+
+    // to avoid having to define hashing function for GameFormat struct
+    std::map<cardsGame::GameType, std::map<cardsGame::SingleOrMulti, std::vector<Client*>>> waitingClients;
+
     int nextClientId = 0;
     int nextSessionId = 1;
     int nextPort = 50052;

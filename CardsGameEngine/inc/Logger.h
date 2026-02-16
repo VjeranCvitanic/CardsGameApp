@@ -176,6 +176,8 @@ inline std::ostream& operator<<(std::ostream& os, MoveReturnValue v)
             return os << "CantCallIfNotFirstOfHand";
         case MoveReturnValue::Finish:
             return os << "Finish";
+        default:
+            break;
     }
     return os << "UnknownMoveValidity";
 }

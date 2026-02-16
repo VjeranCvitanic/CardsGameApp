@@ -111,8 +111,8 @@ struct MoveConstraints
 
 enum MoveReturnValue
 {
-    Ok = 0,
-    // skip 1 - proto reserved
+    InvalidMoveReturnValue = 0,
+    Ok = 1,
     NotYourTurn = 2,
     CardNotInHand = 3,
     ColorConstraintNotMet = 4,

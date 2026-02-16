@@ -29,11 +29,11 @@ void GameSession_NS::GameSession::StartSession()
     std::cout << "Session running on " << server_address << std::endl;
 
     std::thread waitThread([this]() {
-        while(players.size() < 2) {
+        while(players.size() < numPlayers) {
             std::cout << "Waiting for players to join..." << std::endl;
             sleep(1);
         }
-        std::cout << "Both players joined!" << std::endl;
+        std::cout << "All players joined!" << std::endl;
         startMatch();
     });
 
@@ -44,12 +44,6 @@ void GameSession_NS::GameSession::StartSession()
 
 void GameSession_NS::GameSession::dealCards(const PlayerDealtCardsEvent& event)
 {
-    std::cout << "player: " << event.playerId << " dealt cards: ";
-    for (const auto& card : event.cards) {
-        std::cout << "[" << Cards::CardToString(card) << "] ";
-    }
-    std::cout << std::endl;
-
     cardsGame::PlayerDealtCardsMsg* dealMsg = new cardsGame::PlayerDealtCardsMsg();
     dealMsg->set_playerid(event.playerId.second);
     for (const auto& card : event.cards) {
@@ -96,7 +90,10 @@ void GameSession_NS::GameSession::startRound(const StartRoundEvent& event)
 void GameSession_NS::GameSession::startGame(const StartGameEvent& event)
 {
     cardsGame::StartGameMsg* gameMsg = new cardsGame::StartGameMsg();
-    gameMsg->set_gametype(cardsGame::BRISCOLA); // TODO set correct game type
+    cardsGame::GameFormat* gameFormat = gameMsg->mutable_gameformat();
+    gameFormat->set_gametype(gameType);
+    cardsGame::SingleOrMulti sm = (players.size() == 2) ? cardsGame::SingleOrMulti::SINGLE : cardsGame::SingleOrMulti::MULTI;
+    gameFormat->set_singleormulti(sm);
     gameMsg->set_firsttoplayid(event.firstToPlayId.second);
 
     cardsGame::GameEventMsg gameEvent;
@@ -116,7 +113,10 @@ void GameSession_NS::GameSession::startGame(const StartGameEvent& event)
 void GameSession_NS::GameSession::startBriscolaGame(const StartBriscolaGameEvent& event)
 {
     cardsGame::StartGameMsg* gameMsg = new cardsGame::StartGameMsg();
-    gameMsg->set_gametype(cardsGame::BRISCOLA);
+    auto* gameFormat = gameMsg->mutable_gameformat();
+    gameFormat->set_gametype(cardsGame::BRISCOLA);
+    cardsGame::SingleOrMulti sm = (players.size() == 2) ? cardsGame::SingleOrMulti::SINGLE : cardsGame::SingleOrMulti::MULTI;
+    gameFormat->set_singleormulti(sm);
     gameMsg->set_firsttoplayid(event.firstToPlayId.second);
     gameMsg->set_allocated_lastcard(new cardsGame::Card());
     gameMsg->mutable_lastcard()->set_color(static_cast<cardsGame::CardColor>(Cards::getColor(event.lastCard)));
@@ -139,7 +139,10 @@ void GameSession_NS::GameSession::startBriscolaGame(const StartBriscolaGameEvent
 void GameSession_NS::GameSession::startMatch(const StartMatchEvent& event)
 {
     cardsGame::StartMatchMsg* matchMsg = new cardsGame::StartMatchMsg();
-    matchMsg->set_gametype(static_cast<cardsGame::GameType>(event.gameType));
+    auto* gameFormat = matchMsg->mutable_gameformat();
+    gameFormat->set_gametype(gameType);
+    cardsGame::SingleOrMulti sm = (players.size() == 2) ? cardsGame::SingleOrMulti::SINGLE : cardsGame::SingleOrMulti::MULTI;
+    gameFormat->set_singleormulti(sm);
     matchMsg->set_firsttoplayid(event.firstToPlayId.second);
     matchMsg->set_teammateid(-1); // TODO set teammate id if applicable
 
@@ -167,11 +170,13 @@ void GameSession_NS::GameSession::yourTurn(const YourTurnEvent& event)
         c->set_number(static_cast<cardsGame::CardNumber>(Cards::getNumber(card)));
     }
     turnMsg->set_strongcolor(static_cast<cardsGame::CardColor>(event.strongColor));
-    // TODO add moves played in round
+
     for (const auto& move : event.movesPlayedInRound) {
-        cardsGame::Card* c = turnMsg->add_cardsplayedinround();
+        auto* m = turnMsg->add_movesplayedinround();
+        cardsGame::Card *c = m->mutable_card();
         c->set_color(static_cast<cardsGame::CardColor>(Cards::getColor(move.card)));
         c->set_number(static_cast<cardsGame::CardNumber>(Cards::getNumber(move.card)));
+        m->set_call(static_cast<cardsGame::Call>(move.call));
     }
 
     cardsGame::GameEventMsg turnEvent;
@@ -216,9 +221,7 @@ void GameSession_NS::GameSession::playerPlayedMoveEvent(const PlayerPlayedMoveEv
             if(playerId != event.move.playerId.second)
             {
                 gameEvent.set_playerid(playerId);
-                std::cout << "BEFORE SEND" << std::endl;
                 connection->send(gameEvent);
-                std::cout << "AFTER SEND" << std::endl;
             }
         }
     }
@@ -255,8 +258,7 @@ void GameSession_NS::GameSession::endGame(const GameOverEvent& event)
 
     for(int i = 0; i <= 1; i++)
     {
-        gameMsg->add_points();
-        cardsGame::TeamPoints* teamPoints = new cardsGame::TeamPoints();
+        auto* teamPoints = gameMsg->add_points();
         teamPoints->set_teamid(i);
         cardsGame::Points* points = new cardsGame::Points();
         points->set_punti(event.gameResult.points.at(i).punta);
@@ -286,8 +288,7 @@ void GameSession_NS::GameSession::endMatch(const MatchOverEvent& event)
 
     for(int i = 0; i <= 1; i++)
     {
-        matchMsg->add_score();
-        cardsGame::MatchScore* matchScore = new cardsGame::MatchScore();
+        auto* matchScore = matchMsg->add_score();
         matchScore->set_teamid(i);
 
         matchScore->set_numwongames(event.matchResult.score.at(i).wonGames);
@@ -312,6 +313,9 @@ void GameSession_NS::GameSession::moveRsp(const MoveResponseEvent& event)
     cardsGame::PlayMoveRspMsg* moveMsg = new cardsGame::PlayMoveRspMsg();
     cardsGame::MoveRsp moveRsp;
     MoveRspToProto(event.moveValidity, moveRsp);
+
+    std::cout << "moveValidity: " << event.moveValidity << std::endl;
+    std::cout << "MoveRsp: " << moveRsp << std::endl;
 
     moveMsg->set_moversp(moveRsp);
     moveMsg->set_playerid(event.move.playerId.second);
@@ -511,9 +515,17 @@ grpc::Status GameSession_NS::GameSession::SubscribeEvents(grpc::ServerContext* c
     cardsGame::GameEventMsg initialEvent;
     cardsGame::StartMatchMsg* startMatch = new cardsGame::StartMatchMsg();
     startMatch->set_firsttoplayid(0); // first player to play
-    startMatch->set_gametype(gameType);
-    startMatch->set_teammateid(-1); // TODO set teammate id if applicable
+    cardsGame::GameFormat* gameFormat = new cardsGame::GameFormat();
+    gameFormat->set_gametype(gameType);
+    cardsGame::SingleOrMulti sm = (players.size() == 2) ? cardsGame::SingleOrMulti::SINGLE : cardsGame::SingleOrMulti::MULTI;
+    gameFormat->set_singleormulti(sm);
+    startMatch->set_allocated_gameformat(gameFormat);
 
+    int teammateId = -1;
+    if(sm == cardsGame::SingleOrMulti::MULTI)
+        teammateId = (sessionPlayerId + 2) % 4;
+
+    startMatch->set_teammateid(teammateId);
 
     initialEvent.set_eventtype(cardsGame::EventType::START_MATCH_EVENT);
     initialEvent.set_playerid(sessionPlayerId);

@@ -5,10 +5,12 @@
 3) cmake build
 
 4) start server: ./build/server
-5) start clients (for starting template clients: ./build/client <name> <ai/human>)
+5) start clients (for starting template clients:
+    ./build/client <name> <tressette/briscola> <2/4> <ai/human>)
+parameter explanation: playerName, gameType, numberOfPlayers, playerInterface
 
-ai client - plays random move
-human client -
+ai client    -> plays random move
+human client ->
     provides human cli (example of moves: B4 = 4 of Bastoni; C13 = King of coppe)
     each event is followed by getchar() for event readability (i.e. press ENTER after each received event)
 

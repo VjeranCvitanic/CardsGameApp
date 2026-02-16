@@ -1,4 +1,21 @@
 TODO - translation between proto and domain
 TODO - client disconnects before session starts
-TODO - remove manual ptrs from gamesession
-TODO - client se spaja ovako -> ./build/client <name> <gameType> <numPlayers> *<ai/human>*
+TODO - remove raw ptrs from gamesession
+
+TODO - tests (engine tests, client - server interface tests)
+
+TODO - cleanup proto, playerId attributes are redundant in some places
+
+TODO - non-local ip addresses
+
+TODO - legal moves in YourTurnMsg
+
+TODO - result aggregation ( server controls persistent storage in shape of <name - ELO score>;
+        server is in control of calculation ELO.
+        gameSession returns match score.)
+
+TODO - some clients get full event info, other fet some info (round over e.g.)
+
+TODO - why do i have two startMatchEvents sent?
+
+TODO - build for windows

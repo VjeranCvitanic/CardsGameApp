@@ -10,29 +10,42 @@ service CardsGameServer {
   rpc Connect (ConnectReq) returns (ConnectRsp) {}
 }
 
+// reason for this design: engine would return gameEvent as rsp to
+// player´s move, which triggers onEvent on gameSession side.
 service CardsGameSession {
   rpc SubscribeEvents(PlayerInfo) returns (stream GameEventMsg);
   rpc PlayMove (PlayMoveReq) returns (google.protobuf.Empty);
 }
 
+// ===========================================================================================
+// ===================================== CONNECTION ==========================================
+// ===========================================================================================
 message PlayerInfo {
   int32 playerId = 1;
 }
 
-// ===========================================================================================
-// ===================================== CONNECTION ==========================================
-// ===========================================================================================
 enum GameType {
   INVALID_GAME_TYPE = 0;
   BRISCOLA = 1;
   TRESSETTE = 2;
 }
 
+enum SingleOrMulti {
+  INVALID_SINGLE_MULTI = 0;
+  SINGLE = 1;
+  MULTI = 2;
+};
+
+message GameFormat {
+  GameType gameType = 1;
+  SingleOrMulti singleOrMulti = 2;
+}
+
 // The request message
 message ConnectReq {
   string name = 1;
-  GameType gameType = 2;
-  string message = 3;
+  repeated GameFormat gameFormats = 2;
+  optional string message = 3;
 }
 
 message SuccessfullConn {
@@ -107,8 +120,8 @@ message PlayMoveReq {
 }
 
 enum MoveRsp {
-  MOVE_OK = 0;
-  INVALID_PLAYER_NAME = 1;
+  INVALID_MOVE_RSP = 0;
+  MOVE_OK = 1;
   NOT_YOUR_TURN = 2;
   CARD_NOT_IN_HAND = 3;
   COLOR_CONSTRAINT_NOT_MET = 4;
@@ -136,13 +149,13 @@ message StartRoundMsg {
 
 message StartGameMsg {
   int32 firstToPlayId = 1;
-  GameType gameType = 2;
+  GameFormat gameFormat = 2;
   optional Card lastCard = 3; // briscola only
 }
 
 message StartMatchMsg {
   int32 firstToPlayId = 1;
-  GameType gameType = 2;
+  GameFormat gameFormat = 2;
   optional int32 teammateId = 3;
 }
 
@@ -179,11 +192,10 @@ message MatchOverMsg {
   repeated MatchScore score = 2;
 }
 
-
 message YourTurnMsg {
   int32 playerId = 1;
   repeated Card hand = 2;
-  repeated Card cardsPlayedInRound = 3; // TODO - this has to be moves
+  repeated Move movesPlayedInRound = 3;
   optional CardColor strongColor = 4; // briscola only
   repeated Card legalMoves = 5;
 }
@@ -252,6 +264,6 @@ message GameEventMsg {
     MatchOverMsg matchOver = 10;
     YourTurnMsg yourTurn = 11;
     AcussosMsg acussoMsg = 12;
-    PlayMoveRspMsg playMoveRsp = 13; // TODO - should this be in req stream or here
+    PlayMoveRspMsg playMoveRsp = 13;
   }
 }
