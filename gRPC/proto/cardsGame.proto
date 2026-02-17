@@ -21,7 +21,8 @@ service CardsGameSession {
 // ===================================== CONNECTION ==========================================
 // ===========================================================================================
 message PlayerInfo {
-  int32 playerId = 1;
+  optional int32 playerId = 1; // optional just to avoid the 
+                               // problem with non-printing of default value (0)
 }
 
 enum GameType {
@@ -49,7 +50,7 @@ message ConnectReq {
 }
 
 message SuccessfullConn {
-  int32 playerId = 1;
+  optional int32 playerId = 1;
   string address = 2;
 }
 
@@ -114,7 +115,7 @@ message Move {
 }
 
 message PlayMoveReq {
-  int32 playerId = 1;
+  PlayerInfo playerInfo = 1;
   Move move = 2;
   string message = 3;
 }
@@ -129,58 +130,58 @@ enum MoveRsp {
 }
 
 message PlayMoveRspMsg {
-  int32 playerId = 1;
+  PlayerInfo playerInfo = 1;
   MoveRsp moveRsp = 2;
 }
 
 message PlayerDealtCardsMsg {
-  int32 playerId = 1;
+  PlayerInfo playerInfo = 1;
   repeated Card card = 2;
 }
 
 message PlayerPlayedMoveMsg {
-  int32 playerId = 1;
+  PlayerInfo playerInfo = 1;
   Move move = 2;
 }
 
 message StartRoundMsg {
-  int32 firstToPlayId = 1;
+  PlayerInfo firstToPlayId = 1;
 }
 
 message StartGameMsg {
-  int32 firstToPlayId = 1;
+  PlayerInfo firstToPlayId = 1;
   GameFormat gameFormat = 2;
   optional Card lastCard = 3; // briscola only
 }
 
 message StartMatchMsg {
-  int32 firstToPlayId = 1;
+  PlayerInfo firstToPlayId = 1;
   GameFormat gameFormat = 2;
   optional int32 teammateId = 3;
 }
 
 message Points {
-  int32 punti = 1;
-  int32 bella = 2;
+  optional int32 punti = 1;
+  optional int32 bella = 2;
 }
 
 message RoundOverMsg {
-  int32 winnerId = 1;
+  PlayerInfo winnerId = 1;
   Points points = 2;
 }
 
 message TeamPoints {
-  int32 teamId = 1;
+  optional int32 teamId = 1;
   Points points = 2;
 }
 
 message GameOverMsg {
-  int32 teamWinnerId = 1;
+  optional int32 teamWinnerId = 1;
   repeated TeamPoints points = 2;
 }
 
 message MatchScore {
-  int32 teamId = 1;
+  optional int32 teamId = 1;
   oneof value {
     Points points = 2;       // tressette
     int32 numWonGames = 3;   // briscola
@@ -188,16 +189,16 @@ message MatchScore {
 }
 
 message MatchOverMsg {
-  int32 teamWinnerId = 1;
+  optional int32 teamWinnerId = 1;
   repeated MatchScore score = 2;
 }
 
 message YourTurnMsg {
-  int32 playerId = 1;
+  PlayerInfo playerInfo = 1;
   repeated Card hand = 2;
   repeated Move movesPlayedInRound = 3;
   optional CardColor strongColor = 4; // briscola only
-  repeated Card legalMoves = 5;
+  repeated Card legalCards = 5;
 }
 
 message AcussoMsg {
@@ -230,7 +231,7 @@ message AcussoMsg {
 }
 
 message AcussosMsg {
-  int32 AcussoPlayerId = 1;
+  PlayerInfo AcussoPlayerId = 1;
   repeated AcussoMsg acusso = 2;
 }
 
@@ -251,7 +252,7 @@ enum EventType {
 }
 
 message GameEventMsg {
-  int32 playerId = 1;
+  PlayerInfo playerInfo = 1;
   EventType eventType = 2;
   oneof eventMsg {
     PlayerDealtCardsMsg playerDealtCards = 3;

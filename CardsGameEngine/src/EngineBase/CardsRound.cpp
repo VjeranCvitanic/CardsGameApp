@@ -83,11 +83,14 @@ void CardsRound_NS::CardsRound::playMove(const Move& move)
     roundState.playedMovesInRound.push_back(move);
 }
 
-void CardsRound_NS::CardsRound::emitNextYourTurnEvent()
+void CardsRound_NS::CardsRound::emitNextYourTurnEvent() const
 {
+    CardSet legalCards = {};
+
+    roundRules.calculateLegalMoves(roundState, legalCards);
     eventEmitter.emit(YourTurnEvent(roundState.nextToPlayId,
                 roundState.players[roundState.nextToPlayId.second].deck.getDeck(), 
-                roundState.playedMovesInRound, roundState.strongColor));
+                roundState.playedMovesInRound, roundState.strongColor, legalCards));
 }
 
 void CardsRound_NS::CardsRound::emitMoveRspEvent(const Move& move, MoveReturnValue moveValidity)

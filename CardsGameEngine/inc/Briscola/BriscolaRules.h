@@ -24,6 +24,8 @@ public:
     bool IsMoveLegal(const Move&,
                      const CardsRound_NS::RoundState& state,
                      MoveReturnValue& reason) const override;
+    void calculateLegalMoves(const CardsRound_NS::RoundState& state, CardSet& legalCards) const override;
+
 
 private:
     BriscolaRules() = default; // private ctor

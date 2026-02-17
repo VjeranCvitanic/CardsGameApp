@@ -40,6 +40,7 @@ namespace CardsRound_NS
         virtual bool IsMoveLegal(const Move&, const RoundState& state, MoveReturnValue& reason) const = 0;
 
         int8_t StrongestCard(const CardSet& playedHand, Card& winnerCard, Color strongColor) const;
+        virtual void calculateLegalMoves(const RoundState& state, CardSet& legalCards) const = 0;
     };
 
     class CardsRound
@@ -72,7 +73,7 @@ namespace CardsRound_NS
 
         virtual void preMoveSetup();
         virtual void postMoveSetup(const Move&);
-        void emitNextYourTurnEvent();
+        void emitNextYourTurnEvent() const;
         void emitMoveRspEvent(const Move& move, MoveReturnValue moveValidity);
     private:
     };

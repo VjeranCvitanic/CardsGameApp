@@ -69,7 +69,8 @@ void cardsGameClient::PlayMove(std::unique_ptr<cardsGame::Move> move) {
   grpc::ClientContext moveCtx;
 
   cardsGame::PlayMoveReq request;
-  request.set_playerid(id);
+  cardsGame::PlayerInfo* playerInfo = request.mutable_playerinfo();
+  playerInfo->set_playerid(id);
   request.set_allocated_move(move.release());
 
   if (!sessionStub_) {
@@ -174,7 +175,7 @@ void cardsGameClient::processMyTurn(const cardsGame::GameEventMsg &event) {
 
   if (!isAi) {
     std::unique_ptr<cardsGame::Move> move = std::make_unique<cardsGame::Move>();
-    parseInput(move.get(), event.yourturn().playerid());
+    parseInput(move.get(), event.yourturn().playerinfo().playerid());
 
     PlayMove(std::move(move));
 

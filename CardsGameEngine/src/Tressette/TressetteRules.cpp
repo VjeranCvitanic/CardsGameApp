@@ -41,6 +41,27 @@ bool TressetteRules::IsMoveLegal(const Move& move, const CardsRound_NS::RoundSta
     return true;
 }
 
+void TressetteRules::calculateLegalMoves(const CardsRound_NS::RoundState& state, CardSet& legalCards) const
+{
+    if(state.moveConstraints.colorToPlay != NoColor)
+    {
+        for(auto& card : state.players[state.nextToPlayId.second].deck.getDeck())
+        {
+            if(Cards::getColor(card) == state.moveConstraints.colorToPlay)
+            {
+                legalCards.push_back(card);
+            }
+        }
+    }
+    else
+        legalCards = state.players[state.nextToPlayId.second].deck.getDeck();
+
+    if(legalCards.size() == 0)
+    {
+        legalCards = state.players[state.nextToPlayId.second].deck.getDeck();
+    }
+}
+
 bool TressetteRules::checkConstraints(const CardSet& hand, Card card, Color leadColor) const
 {
     if(leadColor != NoColor && Cards::getColor(card) != leadColor)

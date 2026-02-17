@@ -120,15 +120,19 @@ struct YourTurnEvent : PrivateEvent
     Color strongColor;
 
     //legal moves
+    CardSet legalCards;
+
 
     YourTurnEvent(fullPlayerId pid,
                   CardSet hand,
                   Moves moves,
-                  Color color)
+                  Color color,
+                  CardSet legalCards)
         : playerId(pid)
         , yourHand(std::move(hand))
         , movesPlayedInRound(std::move(moves))
         , strongColor(color)
+        , legalCards(std::move(legalCards))
     {}
 };
 

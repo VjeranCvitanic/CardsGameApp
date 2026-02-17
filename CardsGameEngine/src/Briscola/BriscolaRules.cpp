@@ -1,4 +1,5 @@
 #include "BriscolaRules.h"
+#include "BriscolaRound.h"
 #include "Logger.h"
 #include "Cards.h"
 
@@ -20,6 +21,11 @@ bool BriscolaRules::IsMoveLegal(const Move& move, const CardsRound_NS::RoundStat
         return false;
     }
     return true;
+}
+
+void BriscolaRules::calculateLegalMoves(const CardsRound_NS::RoundState& state, CardSet& legalCards) const
+{
+    legalCards = state.players[state.nextToPlayId.second].deck.getDeck();
 }
 
 Card BriscolaRules::StrongerCard(const Card& card1, const Card& card2, Color strongColor) const

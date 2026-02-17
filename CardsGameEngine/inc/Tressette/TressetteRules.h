@@ -25,6 +25,8 @@ public:
                      const CardsRound_NS::RoundState& state,
                      MoveReturnValue& reason) const override;
     bool checkConstraints(const CardSet& hand, Card card, Color leadColor) const;
+    void calculateLegalMoves(const CardsRound_NS::RoundState& state, CardSet& legalCards) const override;
+
 
 private:
     TressetteRules() = default; // private ctor
