@@ -87,9 +87,16 @@ target_include_directories(server
         "${CMAKE_SOURCE_DIR}/../CardsGameEngine/inc/Events"
 )
 
+# Locate engine library cross-platform
+find_library(CARD_ENGINE_LIB
+    NAMES card_engine
+    PATHS "${CMAKE_SOURCE_DIR}/../CardsGameEngine/build"
+    REQUIRED
+)
+
 target_link_libraries(server
     PRIVATE
-        "${CMAKE_SOURCE_DIR}/../CardsGameEngine/build/libcard_engine.dylib"
+        ${CARD_ENGINE_LIB}
 )
 
 # ---- Client

@@ -45,7 +45,7 @@ void GameSession_NS::GameSession::StartSession()
 void GameSession_NS::GameSession::dealCards(const PlayerDealtCardsEvent& event)
 {
     cardsGame::PlayerDealtCardsMsg* dealMsg = new cardsGame::PlayerDealtCardsMsg();
-    dealMsg->mutable_playerinfo()->set_playerid(event.playerId.first);
+    dealMsg->mutable_playerinfo()->set_playerid(event.playerId.second);
     for (const auto& card : event.cards) {
         cardsGame::Card* c = dealMsg->add_card();
         c->set_color(static_cast<cardsGame::CardColor>(Cards::getColor(card)));
@@ -162,7 +162,7 @@ void GameSession_NS::GameSession::yourTurn(const YourTurnEvent& event)
 
     cardsGame::GameEventMsg turnEvent;
     turnEvent.set_eventtype(cardsGame::EventType::YOUR_TURN_EVENT);
-    turnEvent.mutable_playerinfo()->set_playerid(event.playerId.first);
+    turnEvent.mutable_playerinfo()->set_playerid(event.playerId.second);
     turnEvent.set_allocated_yourturn(turnMsg);
 
     {
@@ -318,7 +318,32 @@ void GameSession_NS::GameSession::moveRsp(const MoveResponseEvent& event)
     }
 }
 
+void GameSession_NS::GameSession::tressetteDealtCards(const TressetteDealtCardsEvent& event)
+{
+    std::cout << "Id: " << event.playerId.second << std::endl;
+    cardsGame::PlayerDealtCardsMsg* dealMsg = new cardsGame::PlayerDealtCardsMsg();
+    dealMsg->mutable_playerinfo()->set_playerid(event.playerId.second);
+    for (const auto& card : event.dealtCards) {
+        cardsGame::Card* c = dealMsg->add_card();
+        c->set_color(static_cast<cardsGame::CardColor>(Cards::getColor(card)));
+        c->set_number(static_cast<cardsGame::CardNumber>(Cards::getNumber(card)));
+    }
 
+    cardsGame::GameEventMsg dealEvent;
+    dealEvent.set_eventtype(cardsGame::EventType::PLAYER_DEALT_CARDS_EVENT);
+    dealEvent.set_allocated_playerdealtcards(dealMsg);
+    {
+        std::lock_guard<std::mutex> lock(connectionsMutex);
+
+        for (const auto& [playerId, connection] : connections) {
+            if(playerId != playerIdToSessionPlayerId(event.playerId.second))
+            {
+                dealEvent.mutable_playerinfo()->set_playerid(playerId);
+                connection->send(dealEvent);
+            }
+        }
+    }
+}
 
 
 
@@ -346,6 +371,7 @@ void GameSession_NS::GameSession::onEvent(
     const TressetteDealtCardsEvent& event)
 {
     std::cout << "TressetteDealtCardsEvent received\n" << std::endl;
+    tressetteDealtCards(event);
 }
 
 void GameSession_NS::GameSession::onEvent(

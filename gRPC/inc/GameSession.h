@@ -107,6 +107,7 @@ private:
     void endGame(const GameOverEvent& event);
     void endMatch(const MatchOverEvent& event);
     void moveRsp(const MoveResponseEvent& event);
+    void tressetteDealtCards(const TressetteDealtCardsEvent& event);
 
 
     int playerIdToSessionPlayerId(int playerId);
