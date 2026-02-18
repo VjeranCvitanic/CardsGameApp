@@ -18,22 +18,16 @@ jobs:
       - name: Setup MSVC Developer Command Prompt
         uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Install vcpkg
-        run: |
-          git clone https://github.com/microsoft/vcpkg.git
-          cd vcpkg
-          .\bootstrap-vcpkg.bat
+      - name: Setup vcpkg
+  uses: lukka/run-vcpkg@v11
+  with:
+    vcpkgGitCommitId: master
 
-      - name: Install dependencies (gRPC + Protobuf)
-        run: |
-          cd vcpkg
-          .\vcpkg install grpc protobuf
 
       - name: Configure CMake
         run: |
-          cmake -B build -S . ^
-            -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}\vcpkg\scripts\buildsystems\vcpkg.cmake ^
-            -DCMAKE_BUILD_TYPE=Release
+          cmake -S gRPC -B build `
+            -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}\vcpkg\scripts\buildsystems\vcpkg.cmake"
 
       - name: Build
         run: cmake --build build --config Release
