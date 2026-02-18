@@ -8,7 +8,7 @@ TODO - result aggregation ( server controls persistent storage in shape of <name
         gameSession returns match score.)
 TODO - client disconnects during game
 
-TODO - tressette dealt cards for everyone
+TODO - BeforeFirstMoveEvent, BriscolaLastRoundEvent, AcussoEvent - missing onEvent
 
 TODO - build for windows
 
