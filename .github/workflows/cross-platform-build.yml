@@ -12,6 +12,7 @@ jobs:
     runs-on: windows-latest
     env:
       VCPKG_DEFAULT_TRIPLET: x64-windows
+      BUILD_DIR: build-windows
 
     steps:
       - name: Checkout repository
@@ -21,34 +22,41 @@ jobs:
         uses: ilammy/msvc-dev-cmd@v1
 
       - name: Setup vcpkg
-        uses: lukka/run-vcpkg@v11
+        shell: pwsh
+        run: |
+          git clone https://github.com/microsoft/vcpkg.git "$env:GITHUB_WORKSPACE\vcpkg"
+          & "$env:GITHUB_WORKSPACE\vcpkg\bootstrap-vcpkg.bat"
 
       - name: Install dependencies (vcpkg)
         shell: pwsh
         run: |
-          vcpkg install grpc protobuf --triplet $env:VCPKG_DEFAULT_TRIPLET
+          & "$env:GITHUB_WORKSPACE\vcpkg\vcpkg.exe" install grpc protobuf --triplet $env:VCPKG_DEFAULT_TRIPLET
 
       - name: Configure CMake
+        shell: pwsh
         run: |
-          cmake -S . -B build -G "Visual Studio 17 2022" `
+          if (Test-Path $env:BUILD_DIR) { Remove-Item -Recurse -Force $env:BUILD_DIR }
+          cmake -S . -B $env:BUILD_DIR -G "Visual Studio 17 2022" `
             -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}\vcpkg\scripts\buildsystems\vcpkg.cmake" `
             -DVCPKG_TARGET_TRIPLET=$env:VCPKG_DEFAULT_TRIPLET
 
       - name: Build
-        run: cmake --build build --config Release
+        run: cmake --build $env:BUILD_DIR --config Release
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: windows-executables
           path: |
-            build/**/Release/server.exe
-            build/**/Release/client.exe
-            build/**/Release/briscola.exe
-            build/**/Release/tressette.exe
+            ${{ env.BUILD_DIR }}/**/Release/server.exe
+            ${{ env.BUILD_DIR }}/**/Release/client.exe
+            ${{ env.BUILD_DIR }}/**/Release/briscola.exe
+            ${{ env.BUILD_DIR }}/**/Release/tressette.exe
 
   build-macos:
     runs-on: macos-latest
+    env:
+      BUILD_DIR: build-macos
 
     steps:
       - name: Checkout repository
@@ -60,17 +68,19 @@ jobs:
           brew install cmake protobuf grpc
 
       - name: Configure CMake
-        run: cmake -S . -B build
+        run: |
+          rm -rf "$BUILD_DIR"
+          cmake -S . -B "$BUILD_DIR"
 
       - name: Build
-        run: cmake --build build
+        run: cmake --build "$BUILD_DIR"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: macos-binaries
           path: |
-            build/gRPC/server
-            build/gRPC/client
-            build/CardsGameEngine/briscola
-            build/CardsGameEngine/tressette
+            ${{ env.BUILD_DIR }}/gRPC/server
+            ${{ env.BUILD_DIR }}/gRPC/client
+            ${{ env.BUILD_DIR }}/CardsGameEngine/briscola
+            ${{ env.BUILD_DIR }}/CardsGameEngine/tressette
