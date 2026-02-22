@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(card_games LANGUAGES CXX)
+project(CardsGameEngine LANGUAGES CXX)
 
 # =========================
 # Global settings
@@ -8,10 +8,8 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-set(CMAKE_C_STANDARD 99)
-set(CMAKE_C_STANDARD_REQUIRED ON)
-
 option(BUILD_SHARED_LIBS "Build shared libraries" ON)
+option(CARD_ENGINE_BUILD_EXAMPLES "Build briscola/tressette example executables" ON)
 # =========================
 # Common library
 # =========================
@@ -40,27 +38,38 @@ add_library(card_engine
     src/Acussos.cpp
 
     # Engine interface
-    src/engineIF.cpp
+    src/EngineIF.cpp
 )
+
+target_compile_features(card_engine PUBLIC cxx_std_20)
+
 target_include_directories(card_engine
     PUBLIC
-        ${CMAKE_SOURCE_DIR}/inc
-        ${CMAKE_SOURCE_DIR}/inc/EngineBase
-        ${CMAKE_SOURCE_DIR}/inc/Briscola
-        ${CMAKE_SOURCE_DIR}/inc/Tressette
-        ${CMAKE_SOURCE_DIR}/inc/Events
+        ${CMAKE_CURRENT_SOURCE_DIR}/inc
+        ${CMAKE_CURRENT_SOURCE_DIR}/inc/EngineBase
+        ${CMAKE_CURRENT_SOURCE_DIR}/inc/Briscola
+        ${CMAKE_CURRENT_SOURCE_DIR}/inc/Tressette
+        ${CMAKE_CURRENT_SOURCE_DIR}/inc/Events
 )
 
-# =========================
-# Tournament executable
-# =========================
-add_executable(briscola
-    src/Briscola/main_briscola.cpp
-)
-target_link_libraries(briscola PRIVATE card_engine)
+if(MSVC)
+    target_compile_options(card_engine PRIVATE /W4 /permissive-)
+else()
+    target_compile_options(card_engine PRIVATE -Wall -Wextra -Wpedantic)
+endif()
 
-add_executable(tressette
-    src/Tressette/main_tressette.cpp
-)
-target_link_libraries(tressette PRIVATE card_engine)
+if(CARD_ENGINE_BUILD_EXAMPLES)
+    # =========================
+    # Tournament executables
+    # =========================
+    add_executable(briscola
+        src/Briscola/main_briscola.cpp
+    )
+    target_link_libraries(briscola PRIVATE card_engine)
+
+    add_executable(tressette
+        src/Tressette/main_tressette.cpp
+    )
+    target_link_libraries(tressette PRIVATE card_engine)
+endif()
 

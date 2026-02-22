@@ -1,11 +1,21 @@
 cmake_minimum_required(VERSION 3.15)
-project(ExampleGrpc LANGUAGES CXX)
+project(CardsGameGrpc LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 
 find_package(Protobuf CONFIG REQUIRED)
 find_package(gRPC CONFIG REQUIRED)
+
+if(NOT TARGET card_engine)
+    set(CARD_ENGINE_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+    add_subdirectory(
+        ${CMAKE_CURRENT_SOURCE_DIR}/../CardsGameEngine
+        ${CMAKE_CURRENT_BINARY_DIR}/CardsGameEngine-build
+    )
+endif()
 
 set(PROTO_DIR ${CMAKE_CURRENT_SOURCE_DIR}/proto)
 set(PROTO_FILES
@@ -22,8 +32,7 @@ protobuf_generate(
     PROTOS ${PROTO_FILES}
 )
 
-# ---- gRPC generation (manual, but correct)
-get_target_property(GRPC_CPP_PLUGIN gRPC::grpc_cpp_plugin LOCATION)
+# ---- gRPC generation
 
 set(GRPC_SRCS)
 set(GRPC_HDRS)
@@ -45,10 +54,12 @@ foreach(proto ${PROTO_FILES})
         COMMAND protobuf::protoc
         ARGS
             --grpc_out=${CMAKE_CURRENT_BINARY_DIR}
-            --plugin=protoc-gen-grpc=${GRPC_CPP_PLUGIN}
+            --plugin=protoc-gen-grpc=$<TARGET_FILE:gRPC::grpc_cpp_plugin>
             -I ${PROTO_DIR}
             ${proto}
-        DEPENDS ${proto}
+        DEPENDS
+            ${proto}
+            gRPC::grpc_cpp_plugin
     )
 endforeach()
 
@@ -75,28 +86,15 @@ target_include_directories(proto_lib
 add_executable(server 
     src/server.cpp
     src/GameSession.cpp)
-target_link_libraries(server PRIVATE proto_lib)
+target_link_libraries(server
+    PRIVATE
+        proto_lib
+        card_engine
+)
 
 target_include_directories(server
     PRIVATE
-        "${CMAKE_SOURCE_DIR}/inc"
-        "${CMAKE_SOURCE_DIR}/../CardsGameEngine/inc"
-        "${CMAKE_SOURCE_DIR}/../CardsGameEngine/inc/EngineBase"
-        "${CMAKE_SOURCE_DIR}/../CardsGameEngine/inc/Tressette"
-        "${CMAKE_SOURCE_DIR}/../CardsGameEngine/inc/Briscola"
-        "${CMAKE_SOURCE_DIR}/../CardsGameEngine/inc/Events"
-)
-
-# Locate engine library cross-platform
-find_library(CARD_ENGINE_LIB
-    NAMES card_engine
-    PATHS "${CMAKE_SOURCE_DIR}/../CardsGameEngine/build"
-    REQUIRED
-)
-
-target_link_libraries(server
-    PRIVATE
-        ${CARD_ENGINE_LIB}
+        ${CMAKE_CURRENT_SOURCE_DIR}/inc
 )
 
 # ---- Client
@@ -104,6 +102,6 @@ add_executable(client src/client.cpp)
 target_link_libraries(client PRIVATE proto_lib)
 target_include_directories(client
     PRIVATE
-        "${CMAKE_SOURCE_DIR}/inc"
+        ${CMAKE_CURRENT_SOURCE_DIR}/inc
 )
 
