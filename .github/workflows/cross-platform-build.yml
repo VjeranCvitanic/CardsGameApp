@@ -43,15 +43,20 @@ jobs:
       - name: Build
         run: cmake --build $env:BUILD_DIR --config Release
 
+      - name: Package binaries
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path dist/windows/lib -Force | Out-Null
+          $engineLib = Get-ChildItem -Path "$env:BUILD_DIR" -Recurse -Filter card_engine.lib | Select-Object -First 1
+          if (-not $engineLib) { throw "card_engine.lib not found" }
+          Copy-Item $engineLib.FullName dist/windows/lib/
+          Compress-Archive -Path dist/windows/* -DestinationPath dist/windows-binaries.zip -Force
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: windows-executables
-          path: |
-            ${{ env.BUILD_DIR }}/**/Release/server.exe
-            ${{ env.BUILD_DIR }}/**/Release/client.exe
-            ${{ env.BUILD_DIR }}/**/Release/briscola.exe
-            ${{ env.BUILD_DIR }}/**/Release/tressette.exe
+          name: windows-card-engine-lib-zip
+          path: dist/windows-binaries.zip
 
   build-macos:
     runs-on: macos-latest
@@ -75,12 +80,19 @@ jobs:
       - name: Build
         run: cmake --build "$BUILD_DIR"
 
+      - name: Package binaries
+        run: |
+          mkdir -p dist/macos/lib
+          ENGINE_LIB_PATH=$(find "$BUILD_DIR" -name "libcard_engine.a" | head -n 1)
+          if [ -z "$ENGINE_LIB_PATH" ]; then
+            echo "libcard_engine.a not found"
+            exit 1
+          fi
+          cp "$ENGINE_LIB_PATH" dist/macos/lib/
+          ditto -c -k --sequesterRsrc --keepParent dist/macos dist/macos-binaries.zip
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: macos-binaries
-          path: |
-            ${{ env.BUILD_DIR }}/gRPC/server
-            ${{ env.BUILD_DIR }}/gRPC/client
-            ${{ env.BUILD_DIR }}/CardsGameEngine/briscola
-            ${{ env.BUILD_DIR }}/CardsGameEngine/tressette
+          name: macos-card-engine-lib-zip
+          path: dist/macos-binaries.zip

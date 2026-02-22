@@ -9,11 +9,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 option(BUILD_SHARED_LIBS "Build shared libraries" ON)
-option(CARD_ENGINE_BUILD_EXAMPLES "Build briscola/tressette example executables" ON)
 # =========================
 # Common library
 # =========================
-add_library(card_engine
+add_library(card_engine STATIC
     # Engine base
     src/EngineBase/Cards.cpp
     src/EngineBase/Deck.cpp
@@ -56,20 +55,5 @@ if(MSVC)
     target_compile_options(card_engine PRIVATE /W4 /permissive-)
 else()
     target_compile_options(card_engine PRIVATE -Wall -Wextra -Wpedantic)
-endif()
-
-if(CARD_ENGINE_BUILD_EXAMPLES)
-    # =========================
-    # Tournament executables
-    # =========================
-    add_executable(briscola
-        src/Briscola/main_briscola.cpp
-    )
-    target_link_libraries(briscola PRIVATE card_engine)
-
-    add_executable(tressette
-        src/Tressette/main_tressette.cpp
-    )
-    target_link_libraries(tressette PRIVATE card_engine)
 endif()
 

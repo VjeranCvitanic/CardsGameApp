@@ -10,7 +10,6 @@ find_package(Protobuf CONFIG REQUIRED)
 find_package(gRPC CONFIG REQUIRED)
 
 if(NOT TARGET card_engine)
-    set(CARD_ENGINE_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
     add_subdirectory(
         ${CMAKE_CURRENT_SOURCE_DIR}/../CardsGameEngine
         ${CMAKE_CURRENT_BINARY_DIR}/CardsGameEngine-build
@@ -23,7 +22,7 @@ set(PROTO_FILES
 )
 
 # ---- Proto library
-add_library(proto_lib)
+add_library(proto_lib STATIC)
 
 # ---- Protobuf generation (.pb.cc/.pb.h)
 protobuf_generate(

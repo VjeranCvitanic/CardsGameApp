@@ -17,6 +17,9 @@
 //Build shared libraries
 BUILD_SHARED_LIBS:BOOL=ON
 
+//Build briscola/tressette example executables
+CARD_ENGINE_BUILD_EXAMPLES:BOOL=ON
+
 //Path to a library.
 CARD_ENGINE_LIB:FILEPATH=CARD_ENGINE_LIB-NOTFOUND
 
@@ -232,6 +235,24 @@ CardsGameApp_IS_TOP_LEVEL:STATIC=ON
 
 //Value Computed by CMake
 CardsGameApp_SOURCE_DIR:STATIC=/Users/vjerancvitanic/Developer/Projects/CardsGameApp
+
+//Value Computed by CMake
+CardsGameEngine_BINARY_DIR:STATIC=/Users/vjerancvitanic/Developer/Projects/CardsGameApp/build/CardsGameEngine
+
+//Value Computed by CMake
+CardsGameEngine_IS_TOP_LEVEL:STATIC=OFF
+
+//Value Computed by CMake
+CardsGameEngine_SOURCE_DIR:STATIC=/Users/vjerancvitanic/Developer/Projects/CardsGameApp/CardsGameEngine
+
+//Value Computed by CMake
+CardsGameGrpc_BINARY_DIR:STATIC=/Users/vjerancvitanic/Developer/Projects/CardsGameApp/build/gRPC
+
+//Value Computed by CMake
+CardsGameGrpc_IS_TOP_LEVEL:STATIC=OFF
+
+//Value Computed by CMake
+CardsGameGrpc_SOURCE_DIR:STATIC=/Users/vjerancvitanic/Developer/Projects/CardsGameApp/gRPC
 
 //Value Computed by CMake
 ExampleGrpc_BINARY_DIR:STATIC=/Users/vjerancvitanic/Developer/Projects/CardsGameApp/build/gRPC
