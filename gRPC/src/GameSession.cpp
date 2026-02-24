@@ -177,6 +177,61 @@ void GameSession_NS::GameSession::yourTurn(const YourTurnEvent& event)
     }
 }
 
+cardsGame::AcussoMsg::AcussoType GameSession_NS::GameSession::translateAcussoType(AcussoType engineType)
+{
+    switch(engineType) {
+        case NapolitanaSpade: return cardsGame::AcussoMsg::NAPOLITANA_SPADE;
+        case NapolitanaCoppe: return cardsGame::AcussoMsg::NAPOLITANA_COPPE;
+        case NapolitanaDenari: return cardsGame::AcussoMsg::NAPOLITANA_DENARI;
+        case NapolitanaBastoni: return cardsGame::AcussoMsg::NAPOLITANA_BASTONI;
+        case AssoAcusso: return cardsGame::AcussoMsg::ASSO_ACUSSO;
+        case DueAcusso: return cardsGame::AcussoMsg::DUE_ACUSSO;
+        case TreAcusso: return cardsGame::AcussoMsg::TRE_ACUSSO;
+        case AssoSenzaSpade: return cardsGame::AcussoMsg::ASSO_SENZA_SPADE;
+        case AssoSenzaCoppe: return cardsGame::AcussoMsg::ASSO_SENZA_COPPE;
+        case AssoSenzaDenari: return cardsGame::AcussoMsg::ASSO_SENZA_DENARI;
+        case AssoSenzaBastoni: return cardsGame::AcussoMsg::ASSO_SENZA_BASTONI;
+        case DueSenzaSpade: return cardsGame::AcussoMsg::DUE_SENZA_SPADE;
+        case DueSenzaCoppe: return cardsGame::AcussoMsg::DUE_SENZA_COPPE;
+        case DueSenzaDenari: return cardsGame::AcussoMsg::DUE_SENZA_DENARI;
+        case DueSenzaBastoni: return cardsGame::AcussoMsg::DUE_SENZA_BASTONI;
+        case TreSenzaSpade: return cardsGame::AcussoMsg::TRE_SENZA_SPADE;
+        case TreSenzaCoppe: return cardsGame::AcussoMsg::TRE_SENZA_COPPE;
+        case TreSenzaDenari: return cardsGame::AcussoMsg::TRE_SENZA_DENARI;
+        case TreSenzaBastoni: return cardsGame::AcussoMsg::TRE_SENZA_BASTONI;
+        case NoAcusso: return cardsGame::AcussoMsg::NO_ACUSSO;
+        default: return cardsGame::AcussoMsg::NO_ACUSSO;
+    }
+}
+
+void GameSession_NS::GameSession::acussoEvent(const AcussoEvent& event)
+{
+    cardsGame::AcussosMsg* msgList = new cardsGame::AcussosMsg();
+    msgList->mutable_acussoplayerid()->set_playerid(event.playerId.second);
+
+    for(const auto& acusso : event.acussos)
+    {
+        cardsGame::AcussoMsg* acussoMsg = msgList->add_acusso();
+        acussoMsg->set_acussotype(translateAcussoType(acusso));
+    }
+
+    cardsGame::GameEventMsg gameEvent;
+    gameEvent.set_eventtype(cardsGame::EventType::ACUSSO_EVENT);
+    gameEvent.set_allocated_acussomsg(msgList);
+
+    {
+        std::lock_guard<std::mutex> lock(connectionsMutex);
+
+        for (const auto& [playerId, connection] : connections) {
+            if(playerId != event.playerId.second)
+            {
+                gameEvent.mutable_playerinfo()->set_playerid(playerId);
+                connection->send(gameEvent);
+            }
+        }
+    }
+}
+
 void GameSession_NS::GameSession::playerPlayedMoveEvent(const PlayerPlayedMoveEvent& event)
 {
     cardsGame::PlayerPlayedMoveMsg* msg = new cardsGame::PlayerPlayedMoveMsg();
@@ -345,6 +400,34 @@ void GameSession_NS::GameSession::tressetteDealtCards(const TressetteDealtCardsE
     }
 }
 
+void GameSession_NS::GameSession::briscolaLastRound(const BriscolaLastRoundEvent& event)
+{
+    cardsGame::GameEventMsg gameEvent;
+    gameEvent.set_eventtype(cardsGame::EventType::BRISCOLA_LAST_ROUND_EVENT);
+
+    cardsGame::BriscolaLastRoundMsg* blreMsg = new cardsGame::BriscolaLastRoundMsg;
+
+    blreMsg->mutable_teammateid()->set_playerid(event.senderTeammatePlayerId.second);
+    for (const auto& card : event.senderTeammateHand) {
+        cardsGame::Card* c = blreMsg->add_cards();
+        c->set_color(static_cast<cardsGame::CardColor>(Cards::getColor(card)));
+        c->set_number(static_cast<cardsGame::CardNumber>(Cards::getNumber(card)));
+    }
+
+    gameEvent.set_allocated_briscolalastround(blreMsg);
+    gameEvent.set_eventtype(cardsGame::EventType::BRISCOLA_LAST_ROUND_EVENT);
+    {
+        std::lock_guard<std::mutex> lock(connectionsMutex);
+
+        for (const auto& [playerId, connection] : connections) {
+            if(playerId == playerIdToSessionPlayerId(event.receiverPlayerId.second))
+            {
+                gameEvent.mutable_playerinfo()->set_playerid(playerId);
+                connection->send(gameEvent);
+            }
+        }
+    }
+}
 
 
 void GameSession_NS::GameSession::onEvent(const PlayerPlayedMoveEvent& event)
@@ -427,12 +510,14 @@ void GameSession_NS::GameSession::onEvent(
     const AcussoEvent& event)
 {
     std::cout << "AcussoEvent received\n" << std::endl;
+    acussoEvent(event);
 }
 
 void GameSession_NS::GameSession::onEvent(
     const BriscolaLastRoundEvent& event)
 {
     std::cout << "BriscolaLastRoundEvent received\n" << std::endl;
+    briscolaLastRound(event);
 }
 
 void GameSession_NS::GameSession::onEvent(
@@ -440,12 +525,6 @@ void GameSession_NS::GameSession::onEvent(
 {
     std::cout << "MoveResponseEvent received\n" << std::endl;
     moveRsp(event);
-}
-
-void GameSession_NS::GameSession::onEvent(
-    const BeforeFirstMoveEvent& event)
-{
-    std::cout << "BeforeFirstMoveEvent received\n" << std::endl;
 }
 
 void GameSession_NS::GameSession::onEvent(const GameEvent& event) {

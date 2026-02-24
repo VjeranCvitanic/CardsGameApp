@@ -250,11 +250,11 @@ void Logger::LogEv(const RoundOverEvent& e)
 {
     LOG_EVENT("Round over, result: winnerId:", e.roundResult.winnerId, ", points: (", e.roundResult.points.punta, ", ", e.roundResult.points.bella, ")");
 }
-void Logger::LogEv(const GameOverEvent& e)
+void Logger::LogEv([[maybe_unused]] const GameOverEvent& e)
 {
     LOG_EVENT("Game over");
 }
-void Logger::LogEv(const MatchOverEvent& e)
+void Logger::LogEv([[maybe_unused]] const MatchOverEvent& e)
 {
     LOG_EVENT("Match over");
 }
@@ -287,8 +287,4 @@ void Logger::LogEv(const BriscolaLastRoundEvent& e)
             ", team points: ", e.teamPoints,
             ", teammateHand: ");
     Cards::logCards(e.senderTeammateHand);
-}
-
-void Logger::LogEv(const BeforeFirstMoveEvent& e)
-{
 }

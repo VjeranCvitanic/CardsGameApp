@@ -79,7 +79,7 @@ bool TressetteRules::checkConstraints(const CardSet& hand, Card card, Color lead
 }
 
 
-Card TressetteRules::StrongerCard(const Card& card1, const Card& card2, Color strongColor) const
+Card TressetteRules::StrongerCard(const Card& card1, const Card& card2, [[maybe_unused]] Color strongColor) const
 {
     if(Cards::getColor(card1) == Cards::getColor(card2))
     {

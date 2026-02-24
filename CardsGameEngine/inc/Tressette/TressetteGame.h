@@ -21,7 +21,7 @@ namespace TressetteGame_NS
         {}
     };
 
-    class TressetteGame : public CardsGame_NS::CardsGame, public EventSink
+    class TressetteGame : public CardsGame_NS::CardsGame
     {
     public:
         TressetteGame(const TressetteGameState& gameState, int _numPlayers, const EventEmitter& _eventEmitter);
@@ -36,10 +36,8 @@ namespace TressetteGame_NS
 
         void startNewRound() override;
 
-        void onEvent(const GameEvent& e) override;
         void postDealtCards(const std::vector<CardSet>& cards) override;
     private:
-        void handleBeforeFirstMove(const BeforeFirstMoveEvent& e);
-        std::unordered_set<PlayerId> acussoHandled;
+        void handleBeforeFirstMove();
     };
 }

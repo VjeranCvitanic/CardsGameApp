@@ -160,11 +160,6 @@ struct AcussoEvent : BroadcastEvent
     {}
 };
 
-struct BeforeFirstMoveEvent : Engineinternal
-{
-    fullPlayerId playerId;
-};
-
 struct BriscolaLastRoundEvent : TeamEvent
 {
     fullPlayerId receiverPlayerId;
@@ -185,8 +180,8 @@ struct BriscolaLastRoundEvent : TeamEvent
 
 struct TressetteDealtCardsEvent : BroadcastEvent
 {
-    CardSet dealtCards;
     fullPlayerId playerId;
+    CardSet dealtCards;
 
     TressetteDealtCardsEvent(fullPlayerId _playerId,
                              CardSet _dealtCards)
@@ -209,6 +204,5 @@ using GameEvent = std::variant<
     YourTurnEvent,
     MoveResponseEvent,
     AcussoEvent,
-    BriscolaLastRoundEvent,
-    BeforeFirstMoveEvent
+    BriscolaLastRoundEvent
 >;

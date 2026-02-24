@@ -3,13 +3,13 @@
 #include "Types.h"
 
 CardsMatch_NS::CardsMatch::CardsMatch(const CardsMatch_NS::MatchState& _matchState, int _numPlayers, const EventEmitter& _eventEmitter) :
-    matchState(_matchState), numPlayers(_numPlayers), eventEmitter(_eventEmitter)
+    eventEmitter(_eventEmitter), currGame(), numPlayers(_numPlayers), matchState(_matchState), matchResult()
 {
     LOG_DEBUG("ctor");
 }
 
 CardsMatch_NS::MatchState::MatchState(fullPlayerId _nextToStartId, const Players& _players) :
-    nextToStartId(_nextToStartId), players(_players)
+    players(_players), nextToStartId(_nextToStartId)
 {
     LOG_DEBUG("ctor");
 }

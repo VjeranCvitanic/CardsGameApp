@@ -58,7 +58,7 @@ void Deck::CreateDeck()
     LOG_DEBUG("Creating deck");
     cards.resize(DECK_SIZE);
     std::vector<int> flags(DECK_SIZE, 0);
-    for (int c = Spade; c < InvalidColor; c++)
+    for (int c = Spade; c < NoColor; c++)
     {
         for (int n = Asso; n < InvalidNumber; n++)
         {

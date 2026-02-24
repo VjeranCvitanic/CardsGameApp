@@ -91,7 +91,6 @@ private:
     void onEvent(const MoveResponseEvent& event);
     void onEvent(const AcussoEvent& event);
     void onEvent(const BriscolaLastRoundEvent& event);
-    void onEvent(const BeforeFirstMoveEvent& event);
 
 
     void onEvent(const GameEvent& event) override;
@@ -108,7 +107,10 @@ private:
     void endMatch(const MatchOverEvent& event);
     void moveRsp(const MoveResponseEvent& event);
     void tressetteDealtCards(const TressetteDealtCardsEvent& event);
+    void acussoEvent(const AcussoEvent& event);
+    void briscolaLastRound(const BriscolaLastRoundEvent& event);
 
+    cardsGame::AcussoMsg::AcussoType translateAcussoType(AcussoType engineType);
 
     int playerIdToSessionPlayerId(int playerId);
 

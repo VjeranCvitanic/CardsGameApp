@@ -8,7 +8,6 @@ TODO - result aggregation ( server controls persistent storage in shape of <name
         gameSession returns match score.)
 TODO - client disconnects during game
 
-TODO - BeforeFirstMoveEvent, BriscolaLastRoundEvent, AcussoEvent - missing onEvent
 
 TODO - build for windows
 
@@ -26,3 +25,6 @@ DONE - why do i have two startMatchEvents sent?
 DONE - client disconnects before session starts
 
 DONE - legal moves in YourTurnMsg
+
+DONE - BeforeFirstMoveEvent, BriscolaLastRoundEvent, AcussoEvent - missing onEvent
+

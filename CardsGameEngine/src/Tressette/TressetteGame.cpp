@@ -9,6 +9,7 @@ TressetteGame_NS::TressetteGame::TressetteGame(const TressetteGame_NS::Tressette
 {
     dealCards(20);
 
+    handleBeforeFirstMove();
     startNewRound();
 }
 
@@ -60,32 +61,25 @@ void TressetteGame_NS::TressetteGame::startNewRound()
     );
 }
 
-void TressetteGame_NS::TressetteGame::onEvent(const GameEvent& e)
+void TressetteGame_NS::TressetteGame::handleBeforeFirstMove()
 {
-    if (const auto* ev = std::get_if<BeforeFirstMoveEvent>(&e))
+    LOG_DEBUG("handleBeforeFirstMove");
+    for(auto& player : gameState.players)
     {
-        handleBeforeFirstMove(*ev);
+        Acussos acussoList = {};
+        int pts = 0;
+
+        Acussos_NS::CalculateAcussoPoints(player.deck.getDeck(), pts, acussoList);
+        gameResult.points[player.playerId.first] += pts;
+
+        if(acussoList.size() > 0)
+        {
+            eventEmitter.emit(AcussoEvent{
+                player.playerId,
+                acussoList
+            });
+        }
     }
-}
-
-void TressetteGame_NS::TressetteGame::handleBeforeFirstMove(const BeforeFirstMoveEvent& e)
-{
-    if (acussoHandled.contains(e.playerId.second))
-        return;
-
-    Acussos acussoList;
-
-    int pts = 0;
-    Acussos_NS::CalculateAcussoPoints(gameState.players[e.playerId.second].deck.getDeck(), pts, acussoList);
-
-    gameResult.points[e.playerId.first] += pts;
-
-    eventEmitter.emit(AcussoEvent{
-        e.playerId,
-        acussoList
-    });
-
-    acussoHandled.insert(e.playerId.second);
 }
 
 void TressetteGame_NS::TressetteGame::postDealtCards(const std::vector<CardSet>& cards)

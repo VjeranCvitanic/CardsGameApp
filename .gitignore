@@ -1,4 +1,6 @@
 build/
-*/out/*
-*.vscode*
-*.idx*
+out/
+.vscode
+.idx
+build.log
+.cache

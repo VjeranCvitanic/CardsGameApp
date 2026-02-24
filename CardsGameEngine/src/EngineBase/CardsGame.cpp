@@ -5,14 +5,14 @@
 
 
 CardsGame_NS::CardsGame::CardsGame(const CardsGame_NS::GameState& _gameState, std::unique_ptr<IRuleState> _ruleState, int _handSize, int _numPlayers, const EventEmitter& _eventEmitter) :
-    gameState(_gameState), ruleState(std::move(_ruleState)), handSize(_handSize), numPlayers(_numPlayers), eventEmitter(_eventEmitter)
+    gameState(_gameState), ruleState(std::move(_ruleState)), gameResult(), currRound(), eventEmitter(_eventEmitter), handSize(_handSize), numPlayers(_numPlayers)
 {
     LOG_DEBUG("CardsGame ctor");
     InitGame();
 }
 
 CardsGame_NS::GameState::GameState(fullPlayerId _nextToPlayId, const CardsRound_NS::Players& _players) :
-    nextToPlayId(_nextToPlayId), players(_players)
+    players(_players), deck(), roundCnt(0), nextToPlayId(_nextToPlayId)
 {
     LOG_DEBUG("GameState ctor");
     deck = Deck(true);
@@ -33,7 +33,7 @@ void CardsGame_NS::CardsGame::dealCards(int8_t numCards, std::vector<CardSet>& v
 void CardsGame_NS::CardsGame::dealCardsImpl(int8_t numCards, std::vector<CardSet>* out)
 {
     LOG_DEBUG("Deal cards: ", +numCards);
-    if(gameState.deck.getDeck().size() < numCards)
+    if(gameState.deck.getDeck().size() < static_cast<size_t>(numCards))
     {
         LOG_ERROR("Deck too small");
         return;
@@ -45,7 +45,7 @@ void CardsGame_NS::CardsGame::dealCardsImpl(int8_t numCards, std::vector<CardSet
     std::vector<CardSet> dealtCards;
     dealtCards.resize(numPlayers);
     if(out)
-        out->resize(numCards);
+        out->resize(numPlayers);
 
     for(int i = 0; i < numCards; i++)
     {
@@ -83,7 +83,7 @@ bool CardsGame_NS::CardsGame::isLastRound()
     return false;
 }
 
-void CardsGame_NS::CardsGame::postDealtCards(const std::vector<CardSet>& cards)
+void CardsGame_NS::CardsGame::postDealtCards([[maybe_unused]] const std::vector<CardSet>& cards)
 {}
 
 MoveReturnValue CardsGame_NS::CardsGame::postMove(MoveReturnValue roundRetVal)

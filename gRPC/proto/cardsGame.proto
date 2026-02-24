@@ -81,6 +81,7 @@ enum CardColor {
   COPPE = 2;
   DENARI = 3;
   BASTONI = 4;
+  NO_COLOR = 5;
 }
 
 enum CardNumber {
@@ -197,7 +198,7 @@ message YourTurnMsg {
   PlayerInfo playerInfo = 1;
   repeated Card hand = 2;
   repeated Move movesPlayedInRound = 3;
-  optional CardColor strongColor = 4; // briscola only
+  optional CardColor strongColor = 4;
   repeated Card legalCards = 5;
 }
 
@@ -235,6 +236,11 @@ message AcussosMsg {
   repeated AcussoMsg acusso = 2;
 }
 
+message BriscolaLastRoundMsg {
+    PlayerInfo teammateId = 1;
+    repeated Card cards = 2;
+}
+
 enum EventType {
     INVALID_EVENT = 0;
     PLAYER_DEALT_CARDS_EVENT = 1;
@@ -266,5 +272,6 @@ message GameEventMsg {
     YourTurnMsg yourTurn = 11;
     AcussosMsg acussoMsg = 12;
     PlayMoveRspMsg playMoveRsp = 13;
+    BriscolaLastRoundMsg briscolaLastRound = 14;
   }
 }

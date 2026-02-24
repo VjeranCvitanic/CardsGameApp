@@ -35,7 +35,7 @@ inline std::ostream& operator<<(std::ostream& os,
 
 #define __SHORT_FILE__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 
-#define __LOGGER_LOG__(lvl, ...) Logger::Log(lvl, __SHORT_FILE__, __func__, ##__VA_ARGS__) 
+#define __LOGGER_LOG__(lvl, ...) Logger::Log(lvl, __SHORT_FILE__, __func__ __VA_OPT__(,) __VA_ARGS__) 
 
 #define LOG_DEBUG(...) __LOGGER_LOG__(DEBUG, __VA_ARGS__)
 #define LOG_INFO(...)  __LOGGER_LOG__(INFO, __VA_ARGS__)
@@ -134,7 +134,6 @@ public:
     void LogEv(const MoveResponseEvent& e);
     void LogEv(const AcussoEvent& e);
     void LogEv(const BriscolaLastRoundEvent& e);
-    void LogEv(const BeforeFirstMoveEvent& e);
 
 private:
     static std::unique_ptr<Logger> instance;

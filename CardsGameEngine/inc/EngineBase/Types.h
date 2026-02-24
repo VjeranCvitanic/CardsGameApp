@@ -7,11 +7,11 @@
 
 enum Color
 {
+    InvalidColor = 0,
     Spade = 1, // has to be 1 to match with proto
     Coppe,
     Denari,
     Bastoni,
-    InvalidColor,
     NoColor
 };
 

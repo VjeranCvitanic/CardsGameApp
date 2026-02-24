@@ -4,12 +4,12 @@
 #include "Types.h"
 
 CardsRound_NS::CardsRound::CardsRound(RoundRules& rules, const RoundState& _state, int _handSize, int _numPlayers, const EventEmitter& _eventEmitter) :
-    roundRules(rules),
     roundState(_state),
-    eventEmitter(_eventEmitter),
     roundResult(),
     handSize(_handSize),
-    numPlayers(_numPlayers)
+    numPlayers(_numPlayers),
+    roundRules(rules),
+    eventEmitter(_eventEmitter)
 {
     InitRound();
 }
@@ -18,16 +18,16 @@ CardsRound_NS::RoundRules::RoundRules()
 {}
 
 CardsRound_NS::RoundResult::RoundResult() : 
-    points(0), winnerId({-1, -1})
+    winnerId({-1, -1}), points(0)
 {}
 
 CardsRound_NS::RoundState::RoundState(fullPlayerId _nextToPlayId, const Players& _players) : 
-    nextToPlayId(_nextToPlayId),
-    firstToPlayId(_nextToPlayId),
     players(_players),
     playedMovesInRound({}),
+    moveConstraints({}),
     strongColor(NoColor),
-    moveConstraints({})
+    nextToPlayId(_nextToPlayId),
+    firstToPlayId(_nextToPlayId)
 {
     LOG_DEBUG("RoundState ctor");
 }
@@ -41,7 +41,7 @@ void CardsRound_NS::CardsRound::InitRound()
 
 bool CardsRound_NS::CardsRound::IsFinished()
 {
-    if(roundState.playedMovesInRound.size() == handSize)
+    if(static_cast<int>(roundState.playedMovesInRound.size()) == handSize)
         return true;
     return false;
 }
@@ -100,7 +100,7 @@ void CardsRound_NS::CardsRound::emitMoveRspEvent(const Move& move, MoveReturnVal
 
 int8_t CardsRound_NS::CardsRound::HandWinner(const CardSet& playedHand, Card& winnerCard, Color strongColor)
 {
-    if(playedHand.size() != handSize)
+    if(static_cast<int>(playedHand.size()) != handSize)
     {
         LOG_ERROR("Invalid playedHand size: ", playedHand.size(), ", handsize: ", handSize);
         winnerCard = Cards::makeCard(InvalidColor, InvalidNumber);
@@ -185,7 +185,7 @@ int8_t CardsRound_NS::RoundRules::StrongestCard(const CardSet& playedHand, Card&
     Card winner = playedHand[0];
     int winnerPos = 0;
 
-    for(int i = 1; i < playedHand.size(); i++)
+    for(int i = 1; i < static_cast<int>(playedHand.size()); i++)
     {
         Card w = StrongerCard(winner, playedHand[i], strongColor);
         if(w != winner)
