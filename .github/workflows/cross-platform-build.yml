@@ -46,16 +46,30 @@ jobs:
       - name: Package binaries
         shell: pwsh
         run: |
+          New-Item -ItemType Directory -Path dist/windows/bin -Force | Out-Null
           New-Item -ItemType Directory -Path dist/windows/lib -Force | Out-Null
+
+          # Find and copy server executable
+          $serverExe = Get-ChildItem -Path "$env:BUILD_DIR" -Recurse -Filter server.exe | Select-Object -First 1
+          if (-not $serverExe) { throw "server.exe not found" }
+          Copy-Item $serverExe.FullName dist/windows/bin/
+
+          # Find and copy client executable
+          $clientExe = Get-ChildItem -Path "$env:BUILD_DIR" -Recurse -Filter client.exe | Select-Object -First 1
+          if (-not $clientExe) { throw "client.exe not found" }
+          Copy-Item $clientExe.FullName dist/windows/bin/
+
+          # Find and copy engine static library
           $engineLib = Get-ChildItem -Path "$env:BUILD_DIR" -Recurse -Filter card_engine.lib | Select-Object -First 1
           if (-not $engineLib) { throw "card_engine.lib not found" }
           Copy-Item $engineLib.FullName dist/windows/lib/
+
           Compress-Archive -Path dist/windows/* -DestinationPath dist/windows-binaries.zip -Force
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: windows-card-engine-lib-zip
+          name: windows-binaries-zip
           path: dist/windows-binaries.zip
 
   build-macos:
@@ -82,17 +96,37 @@ jobs:
 
       - name: Package binaries
         run: |
+          mkdir -p dist/macos/bin
           mkdir -p dist/macos/lib
+
+          # Find and copy server executable
+          SERVER_PATH=$(find "$BUILD_DIR" -name "server" -type f -perm +111 | head -n 1)
+          if [ -z "$SERVER_PATH" ]; then
+            echo "server executable not found"
+            exit 1
+          fi
+          cp "$SERVER_PATH" dist/macos/bin/
+
+          # Find and copy client executable
+          CLIENT_PATH=$(find "$BUILD_DIR" -name "client" -type f -perm +111 | head -n 1)
+          if [ -z "$CLIENT_PATH" ]; then
+            echo "client executable not found"
+            exit 1
+          fi
+          cp "$CLIENT_PATH" dist/macos/bin/
+
+          # Find and copy engine static library
           ENGINE_LIB_PATH=$(find "$BUILD_DIR" -name "libcard_engine.a" | head -n 1)
           if [ -z "$ENGINE_LIB_PATH" ]; then
             echo "libcard_engine.a not found"
             exit 1
           fi
           cp "$ENGINE_LIB_PATH" dist/macos/lib/
+
           ditto -c -k --sequesterRsrc --keepParent dist/macos dist/macos-binaries.zip
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: macos-card-engine-lib-zip
+          name: macos-binaries-zip
           path: dist/macos-binaries.zip
