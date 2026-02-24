@@ -30,7 +30,7 @@ jobs:
       - name: Install dependencies (vcpkg)
         shell: pwsh
         run: |
-          & "$env:GITHUB_WORKSPACE\vcpkg\vcpkg.exe" install grpc:x64-windows protobuf:x64-windows
+          & "$env:GITHUB_WORKSPACE\vcpkg\vcpkg.exe" install grpc protobuf --triplet $env:VCPKG_DEFAULT_TRIPLET
 
       - name: Configure CMake
         shell: pwsh
@@ -38,7 +38,7 @@ jobs:
           if (Test-Path $env:BUILD_DIR) { Remove-Item -Recurse -Force $env:BUILD_DIR }
           cmake -S . -B $env:BUILD_DIR -G "Visual Studio 17 2022" `
             -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}\vcpkg\scripts\buildsystems\vcpkg.cmake" `
-            -DVCPKG_TARGET_TRIPLET=x64-windows
+            -DVCPKG_TARGET_TRIPLET=$env:VCPKG_DEFAULT_TRIPLET
 
       - name: Build
         run: cmake --build $env:BUILD_DIR --config Release
