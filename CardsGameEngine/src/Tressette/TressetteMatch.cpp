@@ -39,6 +39,15 @@ void TressetteMatch_NS::TressetteMatch::updateMatchResult()
     }
 }
 
+void TressetteMatch_NS::TressetteMatch::printMatchResult()
+{
+    LOG_INFO("Match result so far: ");
+    for(auto& p : matchState.players)
+    {
+        LOG_INFO("Team ", p.first, " - Points: ", matchResult.score.at(p.first).points);
+    }
+}
+
 bool TressetteMatch_NS::TressetteMatch::IsFinished()
 {
     auto& game = static_cast<TressetteGame_NS::TressetteGame&>(*currGame);

@@ -25,11 +25,7 @@ MoveReturnValue CardsMatch_NS::CardsMatch::PostMove(MoveReturnValue gameRetVal)
     if(gameRetVal == Finish)
     {
         updateMatchResult();
-        LOG_INFO("Match result so far: ");
-        for(auto& p : matchState.players)
-        {
-            LOG_INFO(matchResult.score.at(p.first).wonGames);
-        }
+        printMatchResult();
         matchState.gameCnt++;
         PlayerId playerId = (matchState.nextToStartId.second + 1) % numPlayers;
         matchState.nextToStartId = {playerId%2, playerId};

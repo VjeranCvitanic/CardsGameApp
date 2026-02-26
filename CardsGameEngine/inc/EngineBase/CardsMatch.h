@@ -38,6 +38,7 @@ namespace CardsMatch_NS
         void EndMatch();
 
         virtual void updateMatchResult() = 0;
+        virtual void printMatchResult() = 0;
         MoveReturnValue PostMove(MoveReturnValue gameRetVal);
         virtual void startNewGame() = 0;
         virtual bool IsFinished() = 0;

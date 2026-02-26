@@ -49,18 +49,22 @@ bool cardsGameClient::WaitForSessionStarted(
   playerInfo.set_playerid(id);
 
   cardsGame::GameEventMsg sessionReply;
-  grpc::Status status;
   reader = sessionStub_->SubscribeEvents(&sessionContext, playerInfo);
-
-  while (true) {
-    if (reader && reader->Read(&sessionReply)) {
-      if (sessionReply.eventtype() == cardsGame::EventType::START_MATCH_EVENT) {
-        return true;
-      }
-      std::this_thread::sleep_for(std::chrono::seconds(1));
-    }
+  
+  if (!reader) {
+    std::cerr << "Failed to create event stream" << std::endl;
+    return false;
   }
 
+  while (reader->Read(&sessionReply)) {
+    if (sessionReply.eventtype() == cardsGame::EventType::START_MATCH_EVENT) {
+      std::cout << "[EVENT] " << sessionReply.DebugString() << std::endl;
+      return true;
+    }
+    // Continue reading if not START_MATCH_EVENT
+  }
+
+  std::cerr << "Stream ended without receiving START_MATCH_EVENT" << std::endl;
   return false;
 }
 
@@ -95,8 +99,7 @@ void cardsGameClient::StartClient() {
     playerInfo.set_playerid(id);
 
     std::unique_ptr<grpc::ClientReader<cardsGame::GameEventMsg>> reader;
-    while (!WaitForSessionStarted(context, reader))
-      ;
+    WaitForSessionStarted(context, reader);
 
     cardsGame::GameEventMsg event;
 
@@ -121,6 +124,8 @@ void cardsGameClient::StartClient() {
 }
 
 int main(int argc, char **argv) {
+  srand(time(nullptr)); // Seed random number generator for AI
+  
   if (argc != 5) {
     std::cout << "Usage: client <name> <gameType> <numPlayers> <human|ai>"
               << std::endl;
@@ -255,7 +260,7 @@ int cardsGameClient::parse(std::string input, cardsGame::Move *move,
   card->set_color(color);
   card->set_number(number);
 
-  move->set_call(cardsGame::NO_CALL);
+  move->set_call(call);
   move->set_allocated_card(card.release());
 
   return 0;

@@ -15,6 +15,7 @@ namespace TressetteMatch_NS
 
         void startNewGame() override;
         void updateMatchResult() override;
+        void printMatchResult() override;
         void InitMatch() override;
     };
 }

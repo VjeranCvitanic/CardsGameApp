@@ -53,10 +53,11 @@ void CardsGame_NS::CardsGame::dealCardsImpl(int8_t numCards, std::vector<CardSet
 
         gameState.players[playerId].deck.AddCard(card);
         dealtCards[playerId].push_back(card);
-        playerId = (playerId + 1) % numPlayers;
-
+        
         if (out)
             (*out)[playerId].push_back(card);
+        
+        playerId = (playerId + 1) % numPlayers;
     }
 
     for(int playerId = 0; playerId < numPlayers; playerId++)
@@ -137,6 +138,6 @@ void CardsGame_NS::CardsGame::EndGame()
     else
         gameResult.winnerId = 1;
 
-    eventEmitter.emit(GameOverEvent(std::move(gameResult)));
+    eventEmitter.emit(GameOverEvent(gameResult));
 }
    

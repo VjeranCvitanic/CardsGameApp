@@ -1,6 +1,8 @@
 #include "Server.h"
+#include <algorithm>
 #include <cstddef>
 #include <memory>
+#include <random>
 #include <string>
 #include <thread>
 #include "GameSession.h"
@@ -38,16 +40,16 @@ grpc::Status cardsGameServiceImpl::Connect(grpc::ServerContext* context, const c
     // store client name and assigned ID
     clients.emplace(assignedId, Client(assignedId, request->name(), gameFormats, nextSessionId));
 
-    cardsGame::SuccessfullConn* successConn = new cardsGame::SuccessfullConn();
+    cardsGame::SuccessfullConn successConn;
 
-    successConn->set_playerid(assignedId);
-    successConn->set_address("localhost:" + std::to_string(nextPort));
+    successConn.set_playerid(assignedId);
+    successConn.set_address("localhost:" + std::to_string(nextPort));
 
-    reply->set_allocated_successmsg(successConn);
+    *reply->mutable_successmsg() = successConn;
     reply->set_message("Connected to server");
 
-    std::cout << "Client connected: ID=" << assignedId << ", name=" << request->name() << " sessionId: " << nextSessionId;
-    addClientToWaitingLists(clients.at(assignedId));
+    std::cout << "Client connected: ID=" << assignedId << ", name=" << request->name() << " sessionId: " << nextSessionId << std::endl;
+    addClientToWaitingLists(&clients.at(assignedId));
 
     for(auto& gf : clients.at(assignedId).gameFormats) {
         if(maybeCreateGameSession(gf))
@@ -57,16 +59,16 @@ grpc::Status cardsGameServiceImpl::Connect(grpc::ServerContext* context, const c
     return grpc::Status::OK;
 }
 
-void cardsGameServiceImpl::addClientToWaitingLists(Client c)
+void cardsGameServiceImpl::addClientToWaitingLists(Client* c)
 {
-    for(auto& gf : c.gameFormats) {
-        waitingClients[gf.gameType][gf.SingleOrMulti].push_back(&c);
+    for(auto& gf : c->gameFormats) {
+        waitingClients[gf.gameType][gf.SingleOrMulti].push_back(c);
     }
 }
 
-void cardsGameServiceImpl::removeClientFromWaitingLists(Client c) {
-    for(auto& gf : c.gameFormats) {
-        waitingClients[gf.gameType][gf.SingleOrMulti].erase(std::remove(waitingClients[gf.gameType][gf.SingleOrMulti].begin(), waitingClients[gf.gameType][gf.SingleOrMulti].end(), &c), waitingClients[gf.gameType][gf.SingleOrMulti].end());
+void cardsGameServiceImpl::removeClientFromWaitingLists(Client* c) {
+    for(auto& gf : c->gameFormats) {
+        waitingClients[gf.gameType][gf.SingleOrMulti].erase(std::remove(waitingClients[gf.gameType][gf.SingleOrMulti].begin(), waitingClients[gf.gameType][gf.SingleOrMulti].end(), c), waitingClients[gf.gameType][gf.SingleOrMulti].end());
     }
 }
 
@@ -95,29 +97,47 @@ void cardsGameServiceImpl::RunListener() {
 
 bool cardsGameServiceImpl::maybeCreateGameSession(GameFormat format) {
     int numPlayersInSession = (format.SingleOrMulti == cardsGame::SINGLE) ? 2 : 4;
-    if(waitingClients.at(format.gameType).at(format.SingleOrMulti).size() == numPlayersInSession) {
+    std::cout << "Checking session creation for gameType=" << format.gameType 
+              << ", SingleOrMulti=" << format.SingleOrMulti 
+              << ", waiting=" << waitingClients[format.gameType][format.SingleOrMulti].size() 
+              << ", needed=" << numPlayersInSession << std::endl;
+    if(waitingClients[format.gameType][format.SingleOrMulti].size() == numPlayersInSession) {
         std::cout << "Creating new session" << std::endl;
         std::vector<int> clientsIds = std::vector<int>(numPlayersInSession);
         for(int i = 0; i < numPlayersInSession; i++) {
             clientsIds[i] = waitingClients[format.gameType][format.SingleOrMulti][i]->id;
         }
-        GameSession_NS::GameSession* newSession = new GameSession_NS::GameSession(nextPort, nextSessionId, 
+        
+        // Randomize player order - teams are determined by session ID parity
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::shuffle(clientsIds.begin(), clientsIds.end(), gen);
+        
+        std::cout << "Randomized player order: ";
+        for(int id : clientsIds) {
+            std::cout << id << " ";
+        }
+        std::cout << std::endl;
+        
+        auto newSession = std::make_shared<GameSession_NS::GameSession>(nextPort, nextSessionId, 
             clientsIds, 
             1, format.gameType, numPlayersInSession);
         gameSessions[nextSessionId] = newSession;
 
-        std::thread([newSession, numPlayersInSession, clientsIds, this]() {
+        std::thread([newSession, numPlayersInSession, clientsIds, sessionId = nextSessionId, this]() {
             newSession->StartSession();
             std::cout << "Session ended, cleaning up." << std::endl;
-            delete newSession;
-            gameSessions.erase(nextSessionId); 
-            for(int i = 0; i < numPlayersInSession; i++) {
-                clients.erase(clientsIds[i]);
+            {
+                std::lock_guard<std::mutex> lock(sessionMutex);
+                gameSessions.erase(sessionId);
+                for(int i = 0; i < numPlayersInSession; i++) {
+                    clients.erase(clientsIds[i]);
+                }
             }
         }).detach(); // detach so it runs independently*/
         nextSessionId++;
         for(auto c : waitingClients[format.gameType][format.SingleOrMulti]) {
-            removeClientFromWaitingLists(*c);
+            removeClientFromWaitingLists(c);
         }
 
         nextPort++;

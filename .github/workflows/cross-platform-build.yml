@@ -9,11 +9,10 @@ on:
 
 jobs:
   build-windows:
-    runs-on: windows-2022
+    runs-on: windows-latest
     env:
       VCPKG_DEFAULT_TRIPLET: x64-windows
       BUILD_DIR: build-windows
-      VCPKG_ROOT: ${{ github.workspace }}/vcpkg
 
     steps:
       - name: Checkout repository
@@ -22,30 +21,27 @@ jobs:
       - name: Setup MSVC Developer Command Prompt
         uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Setup vcpkg with caching
-        uses: lukka/run-vcpkg@v11
-        with:
-          vcpkgGitCommitId: 'a34c873a9717a888f58dc05268dea15592c2f0ff'
-          vcpkgJsonGlob: 'vcpkg.json'
+      - name: Setup vcpkg
+        shell: pwsh
+        run: |
+          git clone https://github.com/microsoft/vcpkg.git "$env:GITHUB_WORKSPACE\vcpkg"
+          & "$env:GITHUB_WORKSPACE\vcpkg\bootstrap-vcpkg.bat"
 
       - name: Install dependencies (vcpkg)
         shell: pwsh
         run: |
-          & "$env:VCPKG_ROOT\vcpkg.exe" install grpc:x64-windows protobuf:x64-windows `
-            --overlay-triplets="${{ github.workspace }}" `
-            --no-print-usage
+          & "$env:GITHUB_WORKSPACE\vcpkg\vcpkg.exe" install grpc:x64-windows protobuf:x64-windows
 
       - name: Configure CMake
         shell: pwsh
         run: |
           if (Test-Path $env:BUILD_DIR) { Remove-Item -Recurse -Force $env:BUILD_DIR }
           cmake -S . -B $env:BUILD_DIR -G "Visual Studio 17 2022" `
-            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
-            -DVCPKG_TARGET_TRIPLET=x64-windows `
-            -DVCPKG_BUILD_TYPE=release
+            -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}\vcpkg\scripts\buildsystems\vcpkg.cmake" `
+            -DVCPKG_TARGET_TRIPLET=x64-windows
 
       - name: Build
-        run: cmake --build $env:BUILD_DIR --config Release --parallel
+        run: cmake --build $env:BUILD_DIR --config Release
 
       - name: Package binaries
         shell: pwsh

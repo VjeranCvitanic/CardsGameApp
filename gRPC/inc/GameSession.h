@@ -10,11 +10,6 @@
 #include "Types.h"
 
 namespace GameSession_NS {
-struct Client {
-    int id; // server assigned id
-    int engineId; // 0-3
-    //stream
-};
 
 class PlayerConnection {
 public:
@@ -37,9 +32,11 @@ public:
     GameSession(int Port, int sessionId, std::vector<int> _playersIdList, int _numMatches = 1, cardsGame::GameType _gameType = cardsGame::GameType::BRISCOLA, int _numPlayers = 2)
         : port(Port), sessionId(sessionId), numMatchesToPlay(_numMatches), cntMatchesPlayed(0), teamWins{0, 0}, gameType(_gameType), numPlayers(_numPlayers)
         {
-            /*for(size_t i = 0; i < _playersIdList.size(); i++) {
-                players[i] = _playersIdList[i];
-            }*/
+            std::cout << "GameSession constructor: registering " << _playersIdList.size() << " players" << std::endl;
+            for(size_t i = 0; i < _playersIdList.size(); i++) {
+                std::cout << "  Mapping server player ID " << _playersIdList[i] << " -> session ID " << i << std::endl;
+                players[_playersIdList[i]] = i;
+            }
         }
 
     void StartSession();
@@ -67,12 +64,11 @@ private:
 
     std::unique_ptr<EventEmitter> eventEmitter;
 
-    std::unordered_map<int, int> players; // player´s server id to player´s session id (0-3)
+    std::unordered_map<int, int> players; // server player ID -> session ID (engine player ID 0-3)
     int numPlayers = 0;
 
     MoveReturnValue ApplyMove(const Move& move);
     bool IsSessionOver() const;
-    int AddPlayer(int playerId);
     void PrintResults();
     void startMatch();
 
