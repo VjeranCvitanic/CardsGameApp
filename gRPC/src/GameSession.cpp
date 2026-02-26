@@ -7,8 +7,6 @@
 #include <iostream>
 #include <memory>
 #include <thread>
-#include <unistd.h>
-
 
 void GameSession_NS::GameSession::StartSession()
  {
@@ -29,9 +27,16 @@ void GameSession_NS::GameSession::StartSession()
     std::cout << "Session running on " << server_address << std::endl;
 
     std::thread waitThread([this]() {
-        while(players.size() < numPlayers) {
+        size_t expectedPlayers = players.size();
+        while(true) {
+            {
+                std::lock_guard<std::mutex> lock(connectionsMutex);
+                if(connections.size() >= expectedPlayers) {
+                    break;
+                }
+            }
             std::cout << "Waiting for players to join..." << std::endl;
-            sleep(1);
+            std::this_thread::sleep_for(std::chrono::seconds(1));
         }
         std::cout << "All players joined!" << std::endl;
         startMatch();
@@ -44,10 +49,10 @@ void GameSession_NS::GameSession::StartSession()
 
 void GameSession_NS::GameSession::dealCards(const PlayerDealtCardsEvent& event)
 {
-    cardsGame::PlayerDealtCardsMsg* dealMsg = new cardsGame::PlayerDealtCardsMsg();
-    dealMsg->mutable_playerinfo()->set_playerid(event.playerId.second);
+    cardsGame::PlayerDealtCardsMsg dealMsg;
+    dealMsg.mutable_playerinfo()->set_playerid(event.playerId.second);
     for (const auto& card : event.cards) {
-        cardsGame::Card* c = dealMsg->add_card();
+        cardsGame::Card* c = dealMsg.add_card();
         c->set_color(static_cast<cardsGame::CardColor>(Cards::getColor(card)));
         c->set_number(static_cast<cardsGame::CardNumber>(Cards::getNumber(card)));
     }
@@ -55,7 +60,7 @@ void GameSession_NS::GameSession::dealCards(const PlayerDealtCardsEvent& event)
     cardsGame::GameEventMsg dealEvent;
     dealEvent.set_eventtype(cardsGame::EventType::PLAYER_DEALT_CARDS_EVENT);
     dealEvent.mutable_playerinfo()->set_playerid(event.playerId.second);
-    dealEvent.set_allocated_playerdealtcards(dealMsg);
+    *dealEvent.mutable_playerdealtcards() = dealMsg;
     {
         std::lock_guard<std::mutex> lock(connectionsMutex);
 
@@ -70,12 +75,12 @@ void GameSession_NS::GameSession::dealCards(const PlayerDealtCardsEvent& event)
 
 void GameSession_NS::GameSession::startRound(const StartRoundEvent& event)
 {
-    cardsGame::StartRoundMsg* roundMsg = new cardsGame::StartRoundMsg();
-    roundMsg->mutable_firsttoplayid()->set_playerid(event.firstToPlayId.second);
+    cardsGame::StartRoundMsg roundMsg;
+    roundMsg.mutable_firsttoplayid()->set_playerid(event.firstToPlayId.second);
 
     cardsGame::GameEventMsg roundEvent;
     roundEvent.set_eventtype(cardsGame::EventType::START_ROUND_EVENT);
-    roundEvent.set_allocated_startround(roundMsg);
+    *roundEvent.mutable_startround() = roundMsg;
 
     {
         std::lock_guard<std::mutex> lock(connectionsMutex);
@@ -89,16 +94,16 @@ void GameSession_NS::GameSession::startRound(const StartRoundEvent& event)
 
 void GameSession_NS::GameSession::startGame(const StartGameEvent& event)
 {
-    cardsGame::StartGameMsg* gameMsg = new cardsGame::StartGameMsg();
-    cardsGame::GameFormat* gameFormat = gameMsg->mutable_gameformat();
+    cardsGame::StartGameMsg gameMsg;
+    cardsGame::GameFormat* gameFormat = gameMsg.mutable_gameformat();
     gameFormat->set_gametype(gameType);
     cardsGame::SingleOrMulti sm = (players.size() == 2) ? cardsGame::SingleOrMulti::SINGLE : cardsGame::SingleOrMulti::MULTI;
     gameFormat->set_singleormulti(sm);
-    gameMsg->mutable_firsttoplayid()->set_playerid(event.firstToPlayId.second);
+    gameMsg.mutable_firsttoplayid()->set_playerid(event.firstToPlayId.second);
 
     cardsGame::GameEventMsg gameEvent;
     gameEvent.set_eventtype(cardsGame::EventType::START_GAME_EVENT);
-    gameEvent.set_allocated_startgame(gameMsg);
+    *gameEvent.mutable_startgame() = gameMsg;
 
     {
         std::lock_guard<std::mutex> lock(connectionsMutex);
@@ -112,19 +117,18 @@ void GameSession_NS::GameSession::startGame(const StartGameEvent& event)
 
 void GameSession_NS::GameSession::startBriscolaGame(const StartBriscolaGameEvent& event)
 {
-    cardsGame::StartGameMsg* gameMsg = new cardsGame::StartGameMsg();
-    auto* gameFormat = gameMsg->mutable_gameformat();
+    cardsGame::StartGameMsg gameMsg;
+    auto* gameFormat = gameMsg.mutable_gameformat();
     gameFormat->set_gametype(cardsGame::BRISCOLA);
     cardsGame::SingleOrMulti sm = (players.size() == 2) ? cardsGame::SingleOrMulti::SINGLE : cardsGame::SingleOrMulti::MULTI;
     gameFormat->set_singleormulti(sm);
-    gameMsg->mutable_firsttoplayid()->set_playerid(event.firstToPlayId.second);
-    gameMsg->set_allocated_lastcard(new cardsGame::Card());
-    gameMsg->mutable_lastcard()->set_color(static_cast<cardsGame::CardColor>(Cards::getColor(event.lastCard)));
-    gameMsg->mutable_lastcard()->set_number(static_cast<cardsGame::CardNumber>(Cards::getNumber(event.lastCard)));
+    gameMsg.mutable_firsttoplayid()->set_playerid(event.firstToPlayId.second);
+    gameMsg.mutable_lastcard()->set_color(static_cast<cardsGame::CardColor>(Cards::getColor(event.lastCard)));
+    gameMsg.mutable_lastcard()->set_number(static_cast<cardsGame::CardNumber>(Cards::getNumber(event.lastCard)));
 
     cardsGame::GameEventMsg gameEvent;
     gameEvent.set_eventtype(cardsGame::EventType::START_GAME_EVENT);
-    gameEvent.set_allocated_startgame(gameMsg);
+    *gameEvent.mutable_startgame() = gameMsg;
 
     {
         std::lock_guard<std::mutex> lock(connectionsMutex);
@@ -138,22 +142,22 @@ void GameSession_NS::GameSession::startBriscolaGame(const StartBriscolaGameEvent
 
 void GameSession_NS::GameSession::yourTurn(const YourTurnEvent& event)
 {
-    cardsGame::YourTurnMsg* turnMsg = new cardsGame::YourTurnMsg();
-    turnMsg->mutable_playerinfo()->set_playerid(event.playerId.second);
+    cardsGame::YourTurnMsg turnMsg;
+    turnMsg.mutable_playerinfo()->set_playerid(event.playerId.second);
     for (const auto& card : event.yourHand) {
-        cardsGame::Card* c = turnMsg->add_hand();
+        cardsGame::Card* c = turnMsg.add_hand();
         c->set_color(static_cast<cardsGame::CardColor>(Cards::getColor(card)));
         c->set_number(static_cast<cardsGame::CardNumber>(Cards::getNumber(card)));
     }
-    turnMsg->set_strongcolor(static_cast<cardsGame::CardColor>(event.strongColor));
+    turnMsg.set_strongcolor(static_cast<cardsGame::CardColor>(event.strongColor));
     for(auto card : event.legalCards) {
-        cardsGame::Card* c = turnMsg->add_legalcards();
+        cardsGame::Card* c = turnMsg.add_legalcards();
         c->set_color(static_cast<cardsGame::CardColor>(Cards::getColor(card)));
         c->set_number(static_cast<cardsGame::CardNumber>(Cards::getNumber(card)));
     }
 
     for (const auto& move : event.movesPlayedInRound) {
-        auto* m = turnMsg->add_movesplayedinround();
+        auto* m = turnMsg.add_movesplayedinround();
         cardsGame::Card *c = m->mutable_card();
         c->set_color(static_cast<cardsGame::CardColor>(Cards::getColor(move.card)));
         c->set_number(static_cast<cardsGame::CardNumber>(Cards::getNumber(move.card)));
@@ -163,7 +167,7 @@ void GameSession_NS::GameSession::yourTurn(const YourTurnEvent& event)
     cardsGame::GameEventMsg turnEvent;
     turnEvent.set_eventtype(cardsGame::EventType::YOUR_TURN_EVENT);
     turnEvent.mutable_playerinfo()->set_playerid(event.playerId.second);
-    turnEvent.set_allocated_yourturn(turnMsg);
+    *turnEvent.mutable_yourturn() = turnMsg;
 
     {
         std::lock_guard<std::mutex> lock(connectionsMutex);
@@ -206,18 +210,18 @@ cardsGame::AcussoMsg::AcussoType GameSession_NS::GameSession::translateAcussoTyp
 
 void GameSession_NS::GameSession::acussoEvent(const AcussoEvent& event)
 {
-    cardsGame::AcussosMsg* msgList = new cardsGame::AcussosMsg();
-    msgList->mutable_acussoplayerid()->set_playerid(event.playerId.second);
+    cardsGame::AcussosMsg msgList;
+    msgList.mutable_acussoplayerid()->set_playerid(event.playerId.second);
 
     for(const auto& acusso : event.acussos)
     {
-        cardsGame::AcussoMsg* acussoMsg = msgList->add_acusso();
+        cardsGame::AcussoMsg* acussoMsg = msgList.add_acusso();
         acussoMsg->set_acussotype(translateAcussoType(acusso));
     }
 
     cardsGame::GameEventMsg gameEvent;
     gameEvent.set_eventtype(cardsGame::EventType::ACUSSO_EVENT);
-    gameEvent.set_allocated_acussomsg(msgList);
+    *gameEvent.mutable_acussomsg() = msgList;
 
     {
         std::lock_guard<std::mutex> lock(connectionsMutex);
@@ -234,21 +238,19 @@ void GameSession_NS::GameSession::acussoEvent(const AcussoEvent& event)
 
 void GameSession_NS::GameSession::playerPlayedMoveEvent(const PlayerPlayedMoveEvent& event)
 {
-    cardsGame::PlayerPlayedMoveMsg* msg = new cardsGame::PlayerPlayedMoveMsg();
+    cardsGame::PlayerPlayedMoveMsg msg;
 
-    cardsGame::Move* move = new cardsGame::Move();
-    cardsGame::Card* card = new cardsGame::Card();
+    cardsGame::Move* move = msg.mutable_move();
+    cardsGame::Card* card = move->mutable_card();
     card->set_color(static_cast<cardsGame::CardColor>(Cards::getColor(event.move.card)));
     card->set_number(static_cast<cardsGame::CardNumber>(Cards::getNumber(event.move.card)));
-    move->set_allocated_card(card);
     move->set_call(static_cast<cardsGame::Call>(event.move.call));
     
-    msg->set_allocated_move(move);
-    msg->mutable_playerinfo()->set_playerid(event.move.playerId.second);
+    msg.mutable_playerinfo()->set_playerid(event.move.playerId.second);
 
     cardsGame::GameEventMsg gameEvent;
     gameEvent.set_eventtype(cardsGame::EventType::PLAYER_PLAYED_MOVE_EVENT);
-    gameEvent.set_allocated_playerplayedmove(msg);
+    *gameEvent.mutable_playerplayedmove() = msg;
 
     {
         std::lock_guard<std::mutex> lock(connectionsMutex);
@@ -265,17 +267,16 @@ void GameSession_NS::GameSession::playerPlayedMoveEvent(const PlayerPlayedMoveEv
 
 void GameSession_NS::GameSession::endRound(const RoundOverEvent& event)
 {
-    cardsGame::RoundOverMsg* roundMsg = new cardsGame::RoundOverMsg();
-    roundMsg->mutable_winnerid()->set_playerid(event.roundResult.winnerId.second);
+    cardsGame::RoundOverMsg roundMsg;
+    roundMsg.mutable_winnerid()->set_playerid(event.roundResult.winnerId.second);
 
-    cardsGame::Points* points = new cardsGame::Points();
+    cardsGame::Points* points = roundMsg.mutable_points();
     points->set_punti(event.roundResult.points.punta);
     points->set_bella(event.roundResult.points.bella);
-    roundMsg->set_allocated_points(points);
 
     cardsGame::GameEventMsg gameEvent;
     gameEvent.set_eventtype(cardsGame::EventType::ROUND_OVER_EVENT);
-    gameEvent.set_allocated_roundover(roundMsg);
+    *gameEvent.mutable_roundover() = roundMsg;
 
     {
         std::lock_guard<std::mutex> lock(connectionsMutex);
@@ -289,23 +290,22 @@ void GameSession_NS::GameSession::endRound(const RoundOverEvent& event)
 
 void GameSession_NS::GameSession::endGame(const GameOverEvent& event)
 {
-    cardsGame::GameOverMsg* gameMsg = new cardsGame::GameOverMsg();
-    gameMsg->set_teamwinnerid(event.gameResult.winnerId);
+    cardsGame::GameOverMsg gameMsg;
+    gameMsg.set_teamwinnerid(event.gameResult.winnerId);
 
     for(int i = 0; i <= 1; i++)
     {
-        auto* teamPoints = gameMsg->add_points();
+        auto* teamPoints = gameMsg.add_points();
         teamPoints->set_teamid(i);
-        cardsGame::Points* points = new cardsGame::Points();
+        cardsGame::Points* points = teamPoints->mutable_points();
         points->set_punti(event.gameResult.points.at(i).punta);
         points->set_bella(event.gameResult.points.at(i).bella);
-        teamPoints->set_allocated_points(points);
     }
 
 
     cardsGame::GameEventMsg gameEvent;
     gameEvent.set_eventtype(cardsGame::EventType::GAME_OVER_EVENT);
-    gameEvent.set_allocated_gameover(gameMsg);
+    *gameEvent.mutable_gameover() = gameMsg;
 
     {
         std::lock_guard<std::mutex> lock(connectionsMutex);
@@ -319,12 +319,12 @@ void GameSession_NS::GameSession::endGame(const GameOverEvent& event)
 
 void GameSession_NS::GameSession::endMatch(const MatchOverEvent& event)
 {
-    cardsGame::MatchOverMsg* matchMsg = new cardsGame::MatchOverMsg();
-    matchMsg->set_teamwinnerid(event.matchResult.winnerId);
+    cardsGame::MatchOverMsg matchMsg;
+    matchMsg.set_teamwinnerid(event.matchResult.winnerId);
 
     for(int i = 0; i <= 1; i++)
     {
-        auto* matchScore = matchMsg->add_score();
+        auto* matchScore = matchMsg.add_score();
         matchScore->set_teamid(i);
 
         matchScore->set_numwongames(event.matchResult.score.at(i).wonGames);
@@ -332,7 +332,7 @@ void GameSession_NS::GameSession::endMatch(const MatchOverEvent& event)
 
     cardsGame::GameEventMsg gameEvent;
     gameEvent.set_eventtype(cardsGame::EventType::MATCH_OVER_EVENT);
-    gameEvent.set_allocated_matchover(matchMsg);
+    *gameEvent.mutable_matchover() = matchMsg;
 
     {
         std::lock_guard<std::mutex> lock(connectionsMutex);
@@ -346,19 +346,19 @@ void GameSession_NS::GameSession::endMatch(const MatchOverEvent& event)
 
 void GameSession_NS::GameSession::moveRsp(const MoveResponseEvent& event)
 {
-    cardsGame::PlayMoveRspMsg* moveMsg = new cardsGame::PlayMoveRspMsg();
+    cardsGame::PlayMoveRspMsg moveMsg;
     cardsGame::MoveRsp moveRsp;
     MoveRspToProto(event.moveValidity, moveRsp);
 
     std::cout << "moveValidity: " << event.moveValidity << std::endl;
     std::cout << "MoveRsp: " << moveRsp << std::endl;
 
-    moveMsg->set_moversp(moveRsp);
-    moveMsg->mutable_playerinfo()->set_playerid(event.move.playerId.second);
+    moveMsg.set_moversp(moveRsp);
+    moveMsg.mutable_playerinfo()->set_playerid(event.move.playerId.second);
 
     cardsGame::GameEventMsg gameEvent;
     gameEvent.set_eventtype(cardsGame::EventType::MOVE_RSP_EVENT);
-    gameEvent.set_allocated_playmoversp(moveMsg);
+    *gameEvent.mutable_playmoversp() = moveMsg;
 
     {
         std::lock_guard<std::mutex> lock(connectionsMutex);
@@ -376,17 +376,17 @@ void GameSession_NS::GameSession::moveRsp(const MoveResponseEvent& event)
 void GameSession_NS::GameSession::tressetteDealtCards(const TressetteDealtCardsEvent& event)
 {
     std::cout << "Id: " << event.playerId.second << std::endl;
-    cardsGame::PlayerDealtCardsMsg* dealMsg = new cardsGame::PlayerDealtCardsMsg();
-    dealMsg->mutable_playerinfo()->set_playerid(event.playerId.second);
+    cardsGame::PlayerDealtCardsMsg dealMsg;
+    dealMsg.mutable_playerinfo()->set_playerid(event.playerId.second);
     for (const auto& card : event.dealtCards) {
-        cardsGame::Card* c = dealMsg->add_card();
+        cardsGame::Card* c = dealMsg.add_card();
         c->set_color(static_cast<cardsGame::CardColor>(Cards::getColor(card)));
         c->set_number(static_cast<cardsGame::CardNumber>(Cards::getNumber(card)));
     }
 
     cardsGame::GameEventMsg dealEvent;
     dealEvent.set_eventtype(cardsGame::EventType::PLAYER_DEALT_CARDS_EVENT);
-    dealEvent.set_allocated_playerdealtcards(dealMsg);
+    *dealEvent.mutable_playerdealtcards() = dealMsg;
     {
         std::lock_guard<std::mutex> lock(connectionsMutex);
 
@@ -405,17 +405,16 @@ void GameSession_NS::GameSession::briscolaLastRound(const BriscolaLastRoundEvent
     cardsGame::GameEventMsg gameEvent;
     gameEvent.set_eventtype(cardsGame::EventType::BRISCOLA_LAST_ROUND_EVENT);
 
-    cardsGame::BriscolaLastRoundMsg* blreMsg = new cardsGame::BriscolaLastRoundMsg;
+    cardsGame::BriscolaLastRoundMsg blreMsg;
 
-    blreMsg->mutable_teammateid()->set_playerid(event.senderTeammatePlayerId.second);
+    blreMsg.mutable_teammateid()->set_playerid(event.senderTeammatePlayerId.second);
     for (const auto& card : event.senderTeammateHand) {
-        cardsGame::Card* c = blreMsg->add_cards();
+        cardsGame::Card* c = blreMsg.add_cards();
         c->set_color(static_cast<cardsGame::CardColor>(Cards::getColor(card)));
         c->set_number(static_cast<cardsGame::CardNumber>(Cards::getNumber(card)));
     }
 
-    gameEvent.set_allocated_briscolalastround(blreMsg);
-    gameEvent.set_eventtype(cardsGame::EventType::BRISCOLA_LAST_ROUND_EVENT);
+    *gameEvent.mutable_briscolalastround() = blreMsg;
     {
         std::lock_guard<std::mutex> lock(connectionsMutex);
 
@@ -565,12 +564,6 @@ bool GameSession_NS::GameSession::IsSessionOver() const {
     return cntMatchesPlayed >= numMatchesToPlay;
 }
 
-int GameSession_NS::GameSession::AddPlayer(int playerId) {
-    int sessionId = players.size();
-    players[sessionId] = playerId;
-    return sessionId++;
-}
-
 void GameSession_NS::GameSession::PrintResults() {
     std::cout << "Game session results:" << std::endl;
     std::cout << "Team 1 wins: " << teamWins[0] << std::endl;
@@ -593,34 +586,44 @@ grpc::Status GameSession_NS::GameSession::SubscribeEvents(grpc::ServerContext* c
                                 grpc::ServerWriter<cardsGame::GameEventMsg>* writer)
 {
     std::cout << "SubscribeEvents called for player id: " << request->playerid() << std::endl;
-    int playerId = request->playerid();
+    int serverPlayerId = request->playerid();
 
-    int sessionPlayerId = AddPlayer(playerId);
+    // Look up session player ID from pre-populated map
+    auto it = players.find(serverPlayerId);
+    if (it == players.end()) {
+        std::cerr << "Player " << serverPlayerId << " not found in session!" << std::endl;
+        return grpc::Status(grpc::INVALID_ARGUMENT, "Player not registered in this session");
+    }
+    int sessionPlayerId = it->second;
 
     cardsGame::GameEventMsg initialEvent;
-    cardsGame::StartMatchMsg* startMatch = new cardsGame::StartMatchMsg();
-    startMatch->mutable_firsttoplayid()->set_playerid(0); // first player to play
-    cardsGame::GameFormat* gameFormat = new cardsGame::GameFormat();
+    cardsGame::StartMatchMsg startMatch;
+    startMatch.mutable_firsttoplayid()->set_playerid(0); // first player to play
+    cardsGame::GameFormat* gameFormat = startMatch.mutable_gameformat();
     gameFormat->set_gametype(gameType);
     cardsGame::SingleOrMulti sm = (players.size() == 2) ? cardsGame::SingleOrMulti::SINGLE : cardsGame::SingleOrMulti::MULTI;
     gameFormat->set_singleormulti(sm);
-    startMatch->set_allocated_gameformat(gameFormat);
 
     int teammateId = -1;
     if(sm == cardsGame::SingleOrMulti::MULTI)
         teammateId = (sessionPlayerId + 2) % 4;
 
-    startMatch->set_teammateid(teammateId);
+    startMatch.set_teammateid(teammateId);
 
     initialEvent.set_eventtype(cardsGame::EventType::START_MATCH_EVENT);
     initialEvent.mutable_playerinfo()->set_playerid(sessionPlayerId);
-    initialEvent.set_allocated_startmatch(startMatch);
+    *initialEvent.mutable_startmatch() = startMatch;
 
-    writer->Write(initialEvent); // send initial message
+    std::cout << "Sending START_MATCH_EVENT to player " << serverPlayerId 
+              << " (session ID " << sessionPlayerId << ") with teammate ID " << teammateId << std::endl;
+    
+    bool writeSuccess = writer->Write(initialEvent); // send initial message
+    std::cout << "Write result: " << (writeSuccess ? "SUCCESS" : "FAILED") << std::endl;
 
     {
         std::lock_guard<std::mutex> lock(connectionsMutex);
         connections[sessionPlayerId] = std::make_shared<PlayerConnection>(writer);
+        numPlayers++;
     }
 
     while (!context->IsCancelled() && !IsSessionOver()) {
@@ -630,24 +633,21 @@ grpc::Status GameSession_NS::GameSession::SubscribeEvents(grpc::ServerContext* c
     {
         std::lock_guard<std::mutex> lock(connectionsMutex);
         connections.erase(sessionPlayerId);
-        players.erase(sessionPlayerId);
+        numPlayers--;
     }
 
-    std::cout << "Session with player " << playerId << " over" << std::endl;
+    std::cout << "Session with player " << serverPlayerId << " (session ID " << sessionPlayerId << ") over" << std::endl;
 
 
     return grpc::Status::OK;    
 }
 
-int GameSession_NS::GameSession::playerIdToSessionPlayerId(int playerId)
+int GameSession_NS::GameSession::playerIdToSessionPlayerId(int serverPlayerId)
 {
-    for (const auto& pair : players) {
-        if (pair.second == playerId) {
-            return pair.first;
-        }
+    auto it = players.find(serverPlayerId);
+    if (it != players.end()) {
+        return it->second;
     }
-
-    std::cerr << "Not found" << std::endl;
     return -1;
 }
 

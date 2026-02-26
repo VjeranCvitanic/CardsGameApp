@@ -14,6 +14,7 @@ namespace BriscolaMatch_NS
     protected:
         void startNewGame() override;
         void updateMatchResult() override;
+        void printMatchResult() override;
         void InitMatch() override;
     };
 }

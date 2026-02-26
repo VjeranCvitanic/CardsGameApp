@@ -7,7 +7,7 @@
 TressetteGame_NS::TressetteGame::TressetteGame(const TressetteGame_NS::TressetteGameState& _gameState, int _numPlayers, const EventEmitter& _eventEmitter) :
     CardsGame(_gameState, std::make_unique<TressetteRuleState>(), _numPlayers, _numPlayers, _eventEmitter)
 {
-    dealCards(20);
+    dealCards(10 * numPlayers);
 
     handleBeforeFirstMove();
     startNewRound();
@@ -24,18 +24,27 @@ void TressetteGame_NS::TressetteGame::updateGameResult()
     fullPlayerId winnerId = currRound->roundResult.winnerId;
     if(rule().bastaCalled.first != -1)
     {
+        LOG_INFO("Con questa basta called by team ", rule().bastaCalled.first, ", player ", rule().bastaCalled.second);
         TeamId loserId = (winnerId.first + 1) % 2;
 
         if(rule().bastaCalled == winnerId)
         {    
             Points newPoints = gameResult.points[winnerId.first] + currRound->roundResult.points;
+            LOG_INFO("Caller won round. New points would be: ", newPoints.punta);
             if(newPoints.punta >= 41)
+            {
+                LOG_INFO("Caller reached 41+, awarding points");
                 gameResult.points[winnerId.first] = newPoints;
+            }
             else
+            {
+                LOG_INFO("Caller failed to reach 41, giving other team +11");
                 gameResult.points[loserId] += 11;
+            }
         }
         else {
-            gameResult.points[loserId] += 11;
+            LOG_INFO("Caller lost round, giving other team +11");
+            gameResult.points[winnerId.first] += 11;
         }
     }
     else
@@ -44,7 +53,7 @@ void TressetteGame_NS::TressetteGame::updateGameResult()
 
 bool TressetteGame_NS::TressetteGame::IsFinished()
 {
-    if(currRound->roundState.playedMovesInRound[0].call == ConQuestaBasta)
+    if(rule().bastaCalled.first != -1)
         return true;
     if(gameState.roundCnt > DECK_SIZE/handSize)
         return true;

@@ -36,6 +36,15 @@ void BriscolaMatch_NS::BriscolaMatch::updateMatchResult()
     matchResult.score[currGame->gameResult.winnerId].wonGames++;
 }
 
+void BriscolaMatch_NS::BriscolaMatch::printMatchResult()
+{
+    LOG_INFO("Match result so far: ");
+    for(auto& p : matchState.players)
+    {
+        LOG_INFO("Team ", p.first, " - Games won: ", matchResult.score.at(p.first).wonGames);
+    }
+}
+
 bool BriscolaMatch_NS::BriscolaMatch::IsFinished()
 {
     for(auto& score : matchResult.score)

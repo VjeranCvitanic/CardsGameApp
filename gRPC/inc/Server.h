@@ -35,11 +35,12 @@ public:
 private:
     bool ifClientExists(const std::string& name);
     bool maybeCreateGameSession(GameFormat format);
-    void addClientToWaitingLists(Client c);
-    void removeClientFromWaitingLists(Client c);
+    void addClientToWaitingLists(Client* c);
+    void removeClientFromWaitingLists(Client* c);
 
     std::unordered_map<int, Client> clients;
-    std::unordered_map<int, GameSession_NS::GameSession*> gameSessions;
+    std::unordered_map<int, std::shared_ptr<GameSession_NS::GameSession>> gameSessions;
+    std::mutex sessionMutex;
 
     // to avoid having to define hashing function for GameFormat struct
     std::map<cardsGame::GameType, std::map<cardsGame::SingleOrMulti, std::vector<Client*>>> waitingClients;
