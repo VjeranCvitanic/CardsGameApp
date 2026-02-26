@@ -31,8 +31,8 @@ jobs:
       - name: Install dependencies (vcpkg)
         shell: pwsh
         run: |
-          & "$env:VCPKG_ROOT\vcpkg.exe" install grpc:x64-windows protobuf:x64-windows `
-            --overlay-triplets="${{ github.workspace }}" `
+          & "$env:VCPKG_ROOT\vcpkg.exe" install `
+            --triplet=x64-windows `
             --no-print-usage
 
       - name: Configure CMake
