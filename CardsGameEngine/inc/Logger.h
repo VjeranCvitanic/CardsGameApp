@@ -78,7 +78,7 @@ public:
         std::tm tm;
         #ifdef _WIN32
         // Windows
-        localtime_s(&tm_result, t);
+        localtime_s(&tm, &t);
     #else
         // macOS / Linux
         localtime_r(&t, &tm);

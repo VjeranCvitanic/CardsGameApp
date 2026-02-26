@@ -52,7 +52,7 @@ target_include_directories(card_engine
 )
 
 if(MSVC)
-    target_compile_options(card_engine PRIVATE /W4 /permissive-)
+    target_compile_options(card_engine PRIVATE /W4 /permissive- /Zc:preprocessor)
 else()
     target_compile_options(card_engine PRIVATE -Wall -Wextra -Wpedantic)
 endif()

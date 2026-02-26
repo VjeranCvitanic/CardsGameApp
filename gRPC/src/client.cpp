@@ -5,7 +5,7 @@
 #include <iostream>
 #include <memory>
 #include <ostream>
-#include <unistd.h>
+#include <thread>
 
 bool cardsGameClient::Connect(const std::string &name,
                               cardsGame::GameType gameType,
@@ -57,7 +57,7 @@ bool cardsGameClient::WaitForSessionStarted(
       if (sessionReply.eventtype() == cardsGame::EventType::START_MATCH_EVENT) {
         return true;
       }
-      usleep(1000000);
+      std::this_thread::sleep_for(std::chrono::seconds(1));
     }
   }
 
