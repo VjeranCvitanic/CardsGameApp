@@ -61,7 +61,6 @@ bool cardsGameClient::WaitForSessionStarted(
       std::cout << "[EVENT] " << sessionReply.DebugString() << std::endl;
       return true;
     }
-    // Continue reading if not START_MATCH_EVENT
   }
 
   std::cerr << "Stream ended without receiving START_MATCH_EVENT" << std::endl;
