@@ -5,6 +5,14 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# Static linking configuration for Windows
+if(WIN32)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+    set(CMAKE_FIND_LIBRARY_SUFFIXES .lib .a)
+    set(Protobuf_USE_STATIC_LIBS ON)
+    add_compile_options(/MT$<$<CONFIG:Debug>:d>)
+endif()
+
 
 find_package(Protobuf CONFIG REQUIRED)
 find_package(gRPC CONFIG REQUIRED)
