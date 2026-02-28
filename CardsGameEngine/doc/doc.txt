@@ -1,5 +1,4 @@
 
-TODO - tests (engine tests, client - server interface tests)
 
 
 
@@ -14,7 +13,6 @@ TODO - build for windows
 
 TODO - translation between proto and domain
 TODO - cleanup proto, playerId attributes are redundant in some places
-TODO - remove raw ptrs from gamesession
 TODO - non-local ip addresses
 
 ============================================== DONE =====================================================
@@ -27,4 +25,8 @@ DONE - client disconnects before session starts
 DONE - legal moves in YourTurnMsg
 
 DONE - BeforeFirstMoveEvent, BriscolaLastRoundEvent, AcussoEvent - missing onEvent
+
+DONE - remove raw ptrs from gamesession
+
+AI done - tests (engine tests, client - server interface tests)
 

@@ -9,6 +9,9 @@
 #include "EventEmitter.h"
 #include "Types.h"
 
+// Forward declaration for test friend class
+class TestableGameSession;
+
 namespace GameSession_NS {
 
 class PlayerConnection {
@@ -28,6 +31,7 @@ private:
 
 class GameSession : public cardsGame::CardsGameSession::Service, public EventSink
 {
+    friend class ::TestableGameSession;  // Allow block tests to access private members
 public:
     GameSession(int Port, int sessionId, std::vector<int> _playersIdList, int _numMatches = 1, cardsGame::GameType _gameType = cardsGame::GameType::BRISCOLA, int _numPlayers = 2)
         : port(Port), sessionId(sessionId), numMatchesToPlay(_numMatches), cntMatchesPlayed(0), teamWins{0, 0}, gameType(_gameType), numPlayers(_numPlayers)
