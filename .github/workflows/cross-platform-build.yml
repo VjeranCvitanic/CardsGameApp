@@ -2,16 +2,14 @@ name: Cross-Platform Build
 
 on:
   push:
-
   pull_request:
-
   workflow_dispatch:
 
 jobs:
   build-windows:
     runs-on: windows-latest
     env:
-      VCPKG_DEFAULT_TRIPLET: x64-windows
+      VCPKG_DEFAULT_TRIPLET: x64-windows-static
       BUILD_DIR: build-windows
 
     steps:
@@ -30,7 +28,7 @@ jobs:
       - name: Install dependencies (vcpkg)
         shell: pwsh
         run: |
-          & "$env:GITHUB_WORKSPACE\vcpkg\vcpkg.exe" install grpc:x64-windows protobuf:x64-windows
+          & "$env:GITHUB_WORKSPACE\vcpkg\vcpkg.exe" install grpc:x64-windows-static protobuf:x64-windows-static
 
       - name: Configure CMake
         shell: pwsh
@@ -38,7 +36,8 @@ jobs:
           if (Test-Path $env:BUILD_DIR) { Remove-Item -Recurse -Force $env:BUILD_DIR }
           cmake -S . -B $env:BUILD_DIR -G "Visual Studio 17 2022" `
             -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}\vcpkg\scripts\buildsystems\vcpkg.cmake" `
-            -DVCPKG_TARGET_TRIPLET=x64-windows
+            -DVCPKG_TARGET_TRIPLET=x64-windows-static `
+            -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
 
       - name: Build
         run: cmake --build $env:BUILD_DIR --config Release
@@ -49,20 +48,26 @@ jobs:
           New-Item -ItemType Directory -Path dist/windows/bin -Force | Out-Null
           New-Item -ItemType Directory -Path dist/windows/lib -Force | Out-Null
 
-          # Find and copy server executable
+          # Find and copy server executable (statically linked)
           $serverExe = Get-ChildItem -Path "$env:BUILD_DIR" -Recurse -Filter server.exe | Select-Object -First 1
           if (-not $serverExe) { throw "server.exe not found" }
           Copy-Item $serverExe.FullName dist/windows/bin/
+          Write-Host "Server executable size: $([math]::Round($serverExe.Length / 1MB, 2)) MB"
 
-          # Find and copy client executable
+          # Find and copy client executable (statically linked)
           $clientExe = Get-ChildItem -Path "$env:BUILD_DIR" -Recurse -Filter client.exe | Select-Object -First 1
           if (-not $clientExe) { throw "client.exe not found" }
           Copy-Item $clientExe.FullName dist/windows/bin/
+          Write-Host "Client executable size: $([math]::Round($clientExe.Length / 1MB, 2)) MB"
 
           # Find and copy engine static library
           $engineLib = Get-ChildItem -Path "$env:BUILD_DIR" -Recurse -Filter card_engine.lib | Select-Object -First 1
           if (-not $engineLib) { throw "card_engine.lib not found" }
           Copy-Item $engineLib.FullName dist/windows/lib/
+
+          Write-Host "Static executables packaged successfully (no DLLs required)"
+          Write-Host "Contents of dist/windows/bin:"
+          Get-ChildItem dist/windows/bin
 
           Compress-Archive -Path dist/windows/* -DestinationPath dist/windows-binaries.zip -Force
 
