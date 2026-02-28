@@ -1,0 +1,277 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+
+package cardsGame;
+
+// The service definition
+service CardsGameServer {
+  // A simple RPC
+  rpc Connect (ConnectReq) returns (ConnectRsp) {}
+}
+
+// reason for this design: engine would return gameEvent as rsp to
+// player´s move, which triggers onEvent on gameSession side.
+service CardsGameSession {
+  rpc SubscribeEvents(PlayerInfo) returns (stream GameEventMsg);
+  rpc PlayMove (PlayMoveReq) returns (google.protobuf.Empty);
+}
+
+// ===========================================================================================
+// ===================================== CONNECTION ==========================================
+// ===========================================================================================
+message PlayerInfo {
+  optional int32 playerId = 1; // optional just to avoid the 
+                               // problem with non-printing of default value (0)
+}
+
+enum GameType {
+  INVALID_GAME_TYPE = 0;
+  BRISCOLA = 1;
+  TRESSETTE = 2;
+}
+
+enum SingleOrMulti {
+  INVALID_SINGLE_MULTI = 0;
+  SINGLE = 1;
+  MULTI = 2;
+};
+
+message GameFormat {
+  GameType gameType = 1;
+  SingleOrMulti singleOrMulti = 2;
+}
+
+// The request message
+message ConnectReq {
+  string name = 1;
+  repeated GameFormat gameFormats = 2;
+  optional string message = 3;
+}
+
+message SuccessfullConn {
+  optional int32 playerId = 1;
+  string address = 2;
+}
+
+// The response message
+message ConnectRsp {
+    enum ConnFailReason {
+        UNKNOWN = 0;
+        EMPTY_NAME = 1;
+        INVALID_NAME_SIZE = 2;
+        NAME_ALREADY_TAKEN = 3;
+    }
+
+    oneof rsp {
+        SuccessfullConn successMsg = 1;
+        ConnFailReason fail_reason = 2;
+    }
+
+    optional string message = 3; // optional extra info
+}
+
+// ===========================================================================================
+// ===================================== Cards ==========================================
+// ===========================================================================================
+
+enum CardColor {
+  INVALID_COLOR = 0;
+  SPADE = 1;
+  COPPE = 2;
+  DENARI = 3;
+  BASTONI = 4;
+  NO_COLOR = 5;
+}
+
+enum CardNumber {
+  INVALID_NUMBER = 0;
+  ASSO = 1;
+  DUE = 2;
+  TRE = 3;
+  QUATTRO = 4;
+  CINQUE = 5;
+  SEI = 6;
+  SETTE = 7;
+  FANTE = 8;
+  CAVALLO = 9;
+  RE = 10;
+}
+
+message Card {
+    CardColor color = 1;   // the color of the card
+    CardNumber number = 2;      // the number/value of the card
+}
+
+enum Call {
+  NO_CALL = 0;
+  BUSSO = 1;
+  STRISCIO = 2;
+  CON_QUESTA_BASTA = 3;
+}
+
+message Move {
+  Card card = 1;
+  Call call = 2;
+}
+
+message PlayMoveReq {
+  PlayerInfo playerInfo = 1;
+  Move move = 2;
+  string message = 3;
+}
+
+enum MoveRsp {
+  INVALID_MOVE_RSP = 0;
+  MOVE_OK = 1;
+  NOT_YOUR_TURN = 2;
+  CARD_NOT_IN_HAND = 3;
+  COLOR_CONSTRAINT_NOT_MET = 4;
+  CANT_CALL_IF_NOT_FIRST_OF_HAND = 5;
+}
+
+message PlayMoveRspMsg {
+  PlayerInfo playerInfo = 1;
+  MoveRsp moveRsp = 2;
+}
+
+message PlayerDealtCardsMsg {
+  PlayerInfo playerInfo = 1;
+  repeated Card card = 2;
+}
+
+message PlayerPlayedMoveMsg {
+  PlayerInfo playerInfo = 1;
+  Move move = 2;
+}
+
+message StartRoundMsg {
+  PlayerInfo firstToPlayId = 1;
+}
+
+message StartGameMsg {
+  PlayerInfo firstToPlayId = 1;
+  GameFormat gameFormat = 2;
+  optional Card lastCard = 3; // briscola only
+}
+
+message StartMatchMsg {
+  PlayerInfo firstToPlayId = 1;
+  GameFormat gameFormat = 2;
+  optional int32 teammateId = 3;
+}
+
+message Points {
+  optional int32 punti = 1;
+  optional int32 bella = 2;
+}
+
+message RoundOverMsg {
+  PlayerInfo winnerId = 1;
+  Points points = 2;
+}
+
+message TeamPoints {
+  optional int32 teamId = 1;
+  Points points = 2;
+}
+
+message GameOverMsg {
+  optional int32 teamWinnerId = 1;
+  repeated TeamPoints points = 2;
+}
+
+message MatchScore {
+  optional int32 teamId = 1;
+  oneof value {
+    Points points = 2;       // tressette
+    int32 numWonGames = 3;   // briscola
+  }
+}
+
+message MatchOverMsg {
+  optional int32 teamWinnerId = 1;
+  repeated MatchScore score = 2;
+}
+
+message YourTurnMsg {
+  PlayerInfo playerInfo = 1;
+  repeated Card hand = 2;
+  repeated Move movesPlayedInRound = 3;
+  optional CardColor strongColor = 4;
+  repeated Card legalCards = 5;
+}
+
+message AcussoMsg {
+  enum AcussoType
+  {
+    NO_ACUSSO = 0;
+    NAPOLITANA_SPADE = 1;
+    NAPOLITANA_COPPE = 2;
+    NAPOLITANA_DENARI = 3;
+    NAPOLITANA_BASTONI = 4;
+    ASSO_ACUSSO = 5;
+    DUE_ACUSSO = 6;
+    TRE_ACUSSO = 7;
+    ASSO_SENZA_SPADE = 8;
+    ASSO_SENZA_COPPE = 9;
+    ASSO_SENZA_DENARI = 10;
+    ASSO_SENZA_BASTONI = 11;
+    DUE_SENZA_SPADE = 12;
+    DUE_SENZA_COPPE = 13;
+    DUE_SENZA_DENARI = 14;
+    DUE_SENZA_BASTONI = 15;
+    TRE_SENZA_SPADE = 16;
+    TRE_SENZA_COPPE = 17;
+    TRE_SENZA_DENARI = 18;
+    TRE_SENZA_BASTONI = 19;
+  };
+
+  AcussoType acussoType = 2;
+  int32 acussoPoints = 3;
+}
+
+message AcussosMsg {
+  PlayerInfo AcussoPlayerId = 1;
+  repeated AcussoMsg acusso = 2;
+}
+
+message BriscolaLastRoundMsg {
+    PlayerInfo teammateId = 1;
+    repeated Card cards = 2;
+}
+
+enum EventType {
+    INVALID_EVENT = 0;
+    PLAYER_DEALT_CARDS_EVENT = 1;
+    PLAYER_PLAYED_MOVE_EVENT = 2;
+    START_ROUND_EVENT = 3;
+    START_GAME_EVENT = 4;
+    START_MATCH_EVENT = 5;
+    ROUND_OVER_EVENT = 6;
+    GAME_OVER_EVENT = 7;
+    MATCH_OVER_EVENT = 8;
+    YOUR_TURN_EVENT = 9;
+    ACUSSO_EVENT = 10;
+    BRISCOLA_LAST_ROUND_EVENT = 11;
+    MOVE_RSP_EVENT = 12;
+}
+
+message GameEventMsg {
+  PlayerInfo playerInfo = 1;
+  EventType eventType = 2;
+  oneof eventMsg {
+    PlayerDealtCardsMsg playerDealtCards = 3;
+    PlayerPlayedMoveMsg playerPlayedMove = 4;
+    StartRoundMsg startRound = 5;
+    StartGameMsg startGame = 6;
+    StartMatchMsg startMatch = 7;
+    RoundOverMsg roundOver = 8;
+    GameOverMsg gameOver = 9;
+    MatchOverMsg matchOver = 10;
+    YourTurnMsg yourTurn = 11;
+    AcussosMsg acussoMsg = 12;
+    PlayMoveRspMsg playMoveRsp = 13;
+    BriscolaLastRoundMsg briscolaLastRound = 14;
+  }
+}

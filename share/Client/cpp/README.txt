@@ -1,0 +1,1 @@
+./build/gRPC/client <name> <gameType (briscola/tressette)> <numPlayers (2/4)> <human|ai>
