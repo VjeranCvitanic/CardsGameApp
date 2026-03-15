@@ -32,17 +32,69 @@ void GameSession_NS::GameSession::StartSession()
     std::cout << "Session " << sessionId << ": all players joined, starting match!" << std::endl;
     startMatch();
 
-    // Keep session alive until all connections are gone
+    // Keep session alive; check for disconnect timeouts
     while(true) {
         {
             std::lock_guard<std::mutex> lock(connectionsMutex);
-            if(connections.empty() && IsSessionOver()) {
+
+            // Check for reconnection timeouts
+            auto now = std::chrono::steady_clock::now();
+            for (auto it = disconnectedPlayers_.begin(); it != disconnectedPlayers_.end(); ) {
+                auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - it->second).count();
+                if (elapsed >= RECONNECT_TIMEOUT_SECONDS) {
+                    int timedOutPlayer = it->first;
+                    std::cout << "Player " << timedOutPlayer << " reconnection timeout! Forfeiting." << std::endl;
+                    forfeited_ = true;
+                    forfeitWinnerTeam_ = 1 - (timedOutPlayer % 2);
+                    it = disconnectedPlayers_.erase(it);
+                } else {
+                    ++it;
+                }
+            }
+
+            if (forfeited_ || (connections.empty() && disconnectedPlayers_.empty() && IsSessionOver())) {
                 break;
             }
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(200));
     }
     std::cout << "Session " << sessionId << " finished." << std::endl;
+}
+
+void GameSession_NS::GameSession::sendEvent(int sessionPlayerId, const cardsGame::GameEventMsg& event) {
+    std::lock_guard<std::mutex> lock(connectionsMutex);
+    eventHistory_[sessionPlayerId].push_back(event);
+    auto it = connections.find(sessionPlayerId);
+    if (it != connections.end()) {
+        it->second->send(event);
+    }
+}
+
+void GameSession_NS::GameSession::broadcastEvent(cardsGame::GameEventMsg& event, int excludeSessionId) {
+    std::lock_guard<std::mutex> lock(connectionsMutex);
+    for (const auto& [serverId, sessionId] : players) {
+        if (sessionId == excludeSessionId) continue;
+        event.mutable_playerinfo()->set_playerid(sessionId);
+        eventHistory_[sessionId].push_back(event);
+        auto connIt = connections.find(sessionId);
+        if (connIt != connections.end()) {
+            connIt->second->send(event);
+        }
+    }
+    // Also send to spectators
+    {
+        std::lock_guard<std::mutex> slock(spectatorMutex_);
+        for (auto& [_, spectator] : spectatorConnections_) {
+            spectator->send(event);
+        }
+    }
+}
+
+void GameSession_NS::GameSession::sendToSpectators(const cardsGame::GameEventMsg& event) {
+    std::lock_guard<std::mutex> lock(spectatorMutex_);
+    for (auto& [_, spectator] : spectatorConnections_) {
+        spectator->send(event);
+    }
 }
 
 void GameSession_NS::GameSession::dealCards(const PlayerDealtCardsEvent& event)
@@ -59,16 +111,7 @@ void GameSession_NS::GameSession::dealCards(const PlayerDealtCardsEvent& event)
     dealEvent.set_eventtype(cardsGame::EventType::PLAYER_DEALT_CARDS_EVENT);
     dealEvent.mutable_playerinfo()->set_playerid(event.playerId.second);
     *dealEvent.mutable_playerdealtcards() = dealMsg;
-    {
-        std::lock_guard<std::mutex> lock(connectionsMutex);
-
-        auto it = connections.find(event.playerId.second);
-        if (it != connections.end()) {
-            it->second->send(dealEvent);
-        } else {
-            std::cerr << "No connection for player " << event.playerId.second << std::endl;
-        }
-    }
+    sendEvent(event.playerId.second, dealEvent);
 }
 
 void GameSession_NS::GameSession::startRound(const StartRoundEvent& event)
@@ -79,15 +122,7 @@ void GameSession_NS::GameSession::startRound(const StartRoundEvent& event)
     cardsGame::GameEventMsg roundEvent;
     roundEvent.set_eventtype(cardsGame::EventType::START_ROUND_EVENT);
     *roundEvent.mutable_startround() = roundMsg;
-
-    {
-        std::lock_guard<std::mutex> lock(connectionsMutex);
-
-        for (const auto& [playerId, connection] : connections) {
-            roundEvent.mutable_playerinfo()->set_playerid(playerId);
-            connection->send(roundEvent);
-        }
-    }
+    broadcastEvent(roundEvent);
 }
 
 void GameSession_NS::GameSession::startGame(const StartGameEvent& event)
@@ -102,15 +137,7 @@ void GameSession_NS::GameSession::startGame(const StartGameEvent& event)
     cardsGame::GameEventMsg gameEvent;
     gameEvent.set_eventtype(cardsGame::EventType::START_GAME_EVENT);
     *gameEvent.mutable_startgame() = gameMsg;
-
-    {
-        std::lock_guard<std::mutex> lock(connectionsMutex);
-
-        for (const auto& [playerId, connection] : connections) {
-            gameEvent.mutable_playerinfo()->set_playerid(playerId);
-            connection->send(gameEvent);
-        }
-    }
+    broadcastEvent(gameEvent);
 }
 
 void GameSession_NS::GameSession::startBriscolaGame(const StartBriscolaGameEvent& event)
@@ -127,15 +154,7 @@ void GameSession_NS::GameSession::startBriscolaGame(const StartBriscolaGameEvent
     cardsGame::GameEventMsg gameEvent;
     gameEvent.set_eventtype(cardsGame::EventType::START_GAME_EVENT);
     *gameEvent.mutable_startgame() = gameMsg;
-
-    {
-        std::lock_guard<std::mutex> lock(connectionsMutex);
-
-        for (const auto& [playerId, connection] : connections) {
-            gameEvent.mutable_playerinfo()->set_playerid(playerId);
-            connection->send(gameEvent);
-        }
-    }
+    broadcastEvent(gameEvent);
 }
 
 void GameSession_NS::GameSession::yourTurn(const YourTurnEvent& event)
@@ -166,17 +185,7 @@ void GameSession_NS::GameSession::yourTurn(const YourTurnEvent& event)
     turnEvent.set_eventtype(cardsGame::EventType::YOUR_TURN_EVENT);
     turnEvent.mutable_playerinfo()->set_playerid(event.playerId.second);
     *turnEvent.mutable_yourturn() = turnMsg;
-
-    {
-        std::lock_guard<std::mutex> lock(connectionsMutex);
-
-        auto it = connections.find(event.playerId.second);
-        if (it != connections.end()) {
-            it->second->send(turnEvent);
-        } else {
-            std::cerr << "No connection for player " << event.playerId.second << std::endl;
-        }
-    }
+    sendEvent(event.playerId.second, turnEvent);
 }
 
 cardsGame::AcussoMsg::AcussoType GameSession_NS::GameSession::translateAcussoType(AcussoType engineType)
@@ -220,18 +229,7 @@ void GameSession_NS::GameSession::acussoEvent(const AcussoEvent& event)
     cardsGame::GameEventMsg gameEvent;
     gameEvent.set_eventtype(cardsGame::EventType::ACUSSO_EVENT);
     *gameEvent.mutable_acussomsg() = msgList;
-
-    {
-        std::lock_guard<std::mutex> lock(connectionsMutex);
-
-        for (const auto& [playerId, connection] : connections) {
-            if(playerId != event.playerId.second)
-            {
-                gameEvent.mutable_playerinfo()->set_playerid(playerId);
-                connection->send(gameEvent);
-            }
-        }
-    }
+    broadcastEvent(gameEvent, event.playerId.second);
 }
 
 void GameSession_NS::GameSession::playerPlayedMoveEvent(const PlayerPlayedMoveEvent& event)
@@ -249,18 +247,7 @@ void GameSession_NS::GameSession::playerPlayedMoveEvent(const PlayerPlayedMoveEv
     cardsGame::GameEventMsg gameEvent;
     gameEvent.set_eventtype(cardsGame::EventType::PLAYER_PLAYED_MOVE_EVENT);
     *gameEvent.mutable_playerplayedmove() = msg;
-
-    {
-        std::lock_guard<std::mutex> lock(connectionsMutex);
-
-        for (const auto& [playerId, connection] : connections) {
-            if(playerId != event.move.playerId.second)
-            {
-                gameEvent.mutable_playerinfo()->set_playerid(playerId);
-                connection->send(gameEvent);
-            }
-        }
-    }
+    broadcastEvent(gameEvent, event.move.playerId.second);
 }
 
 void GameSession_NS::GameSession::endRound(const RoundOverEvent& event)
@@ -275,15 +262,7 @@ void GameSession_NS::GameSession::endRound(const RoundOverEvent& event)
     cardsGame::GameEventMsg gameEvent;
     gameEvent.set_eventtype(cardsGame::EventType::ROUND_OVER_EVENT);
     *gameEvent.mutable_roundover() = roundMsg;
-
-    {
-        std::lock_guard<std::mutex> lock(connectionsMutex);
-
-        for (const auto& [playerId, connection] : connections) {
-            gameEvent.mutable_playerinfo()->set_playerid(playerId);
-            connection->send(gameEvent);
-        }
-    }
+    broadcastEvent(gameEvent);
 }
 
 void GameSession_NS::GameSession::endGame(const GameOverEvent& event)
@@ -304,15 +283,7 @@ void GameSession_NS::GameSession::endGame(const GameOverEvent& event)
     cardsGame::GameEventMsg gameEvent;
     gameEvent.set_eventtype(cardsGame::EventType::GAME_OVER_EVENT);
     *gameEvent.mutable_gameover() = gameMsg;
-
-    {
-        std::lock_guard<std::mutex> lock(connectionsMutex);
-
-        for (const auto& [playerId, connection] : connections) {
-            gameEvent.mutable_playerinfo()->set_playerid(playerId);
-            connection->send(gameEvent);
-        }
-    }
+    broadcastEvent(gameEvent);
 }
 
 void GameSession_NS::GameSession::endMatch(const MatchOverEvent& event)
@@ -331,15 +302,7 @@ void GameSession_NS::GameSession::endMatch(const MatchOverEvent& event)
     cardsGame::GameEventMsg gameEvent;
     gameEvent.set_eventtype(cardsGame::EventType::MATCH_OVER_EVENT);
     *gameEvent.mutable_matchover() = matchMsg;
-
-    {
-        std::lock_guard<std::mutex> lock(connectionsMutex);
-
-        for (const auto& [playerId, connection] : connections) {
-            gameEvent.mutable_playerinfo()->set_playerid(playerId);
-            connection->send(gameEvent);
-        }
-    }
+    broadcastEvent(gameEvent);
 }
 
 void GameSession_NS::GameSession::moveRsp(const MoveResponseEvent& event)
@@ -356,19 +319,9 @@ void GameSession_NS::GameSession::moveRsp(const MoveResponseEvent& event)
 
     cardsGame::GameEventMsg gameEvent;
     gameEvent.set_eventtype(cardsGame::EventType::MOVE_RSP_EVENT);
+    gameEvent.mutable_playerinfo()->set_playerid(event.move.playerId.second);
     *gameEvent.mutable_playmoversp() = moveMsg;
-
-    {
-        std::lock_guard<std::mutex> lock(connectionsMutex);
-
-        for (const auto& [playerId, connection] : connections) {
-            if(playerId == event.move.playerId.second)
-            {
-                gameEvent.mutable_playerinfo()->set_playerid(playerId);
-                connection->send(gameEvent);
-            }
-        }
-    }
+    sendEvent(event.move.playerId.second, gameEvent);
 }
 
 void GameSession_NS::GameSession::tressetteDealtCards(const TressetteDealtCardsEvent& event)
@@ -385,17 +338,7 @@ void GameSession_NS::GameSession::tressetteDealtCards(const TressetteDealtCardsE
     cardsGame::GameEventMsg dealEvent;
     dealEvent.set_eventtype(cardsGame::EventType::PLAYER_DEALT_CARDS_EVENT);
     *dealEvent.mutable_playerdealtcards() = dealMsg;
-    {
-        std::lock_guard<std::mutex> lock(connectionsMutex);
-
-        for (const auto& [playerId, connection] : connections) {
-            if(playerId != playerIdToSessionPlayerId(event.playerId.second))
-            {
-                dealEvent.mutable_playerinfo()->set_playerid(playerId);
-                connection->send(dealEvent);
-            }
-        }
-    }
+    broadcastEvent(dealEvent, playerIdToSessionPlayerId(event.playerId.second));
 }
 
 void GameSession_NS::GameSession::briscolaLastRound(const BriscolaLastRoundEvent& event)
@@ -414,15 +357,9 @@ void GameSession_NS::GameSession::briscolaLastRound(const BriscolaLastRoundEvent
 
     *gameEvent.mutable_briscolalastround() = blreMsg;
     {
-        std::lock_guard<std::mutex> lock(connectionsMutex);
-
-        for (const auto& [playerId, connection] : connections) {
-            if(playerId == playerIdToSessionPlayerId(event.receiverPlayerId.second))
-            {
-                gameEvent.mutable_playerinfo()->set_playerid(playerId);
-                connection->send(gameEvent);
-            }
-        }
+        int targetId = playerIdToSessionPlayerId(event.receiverPlayerId.second);
+        gameEvent.mutable_playerinfo()->set_playerid(targetId);
+        sendEvent(targetId, gameEvent);
     }
 }
 
@@ -559,13 +496,17 @@ MoveReturnValue GameSession_NS::GameSession::ApplyMove(const Move& move) {
 }
 
 bool GameSession_NS::GameSession::IsSessionOver() const {
-    return cntMatchesPlayed >= numMatchesToPlay;
+    return forfeited_ || cntMatchesPlayed >= numMatchesToPlay;
 }
 
 GameSession_NS::GameSession::SessionResult GameSession_NS::GameSession::GetResult() const {
     SessionResult r;
     r.sessionId = sessionId;
-    r.winnerTeamId = (teamWins[0] >= teamWins[1]) ? 0 : 1;
+    if (forfeited_) {
+        r.winnerTeamId = forfeitWinnerTeam_;
+    } else {
+        r.winnerTeamId = (teamWins[0] >= teamWins[1]) ? 0 : 1;
+    }
     r.teamWins[0] = teamWins[0];
     r.teamWins[1] = teamWins[1];
     return r;
@@ -609,50 +550,138 @@ grpc::Status GameSession_NS::GameSession::SubscribeEvents(grpc::ServerContext* c
     }
     int sessionPlayerId = it->second;
 
-    cardsGame::GameEventMsg initialEvent;
-    cardsGame::StartMatchMsg startMatch;
-    startMatch.mutable_firsttoplayid()->set_playerid(0); // first player to play
-    cardsGame::GameFormat* gameFormat = startMatch.mutable_gameformat();
-    gameFormat->set_gametype(gameType);
-    cardsGame::SingleOrMulti sm = (players.size() == 2) ? cardsGame::SingleOrMulti::SINGLE : cardsGame::SingleOrMulti::MULTI;
-    gameFormat->set_singleormulti(sm);
+    // Check if this is a reconnection
+    bool isReconnect = false;
+    {
+        std::lock_guard<std::mutex> lock(connectionsMutex);
+        if (disconnectedPlayers_.count(sessionPlayerId)) {
+            isReconnect = true;
+            disconnectedPlayers_.erase(sessionPlayerId);
+        }
+    }
 
-    int teammateId = -1;
-    if(sm == cardsGame::SingleOrMulti::MULTI)
-        teammateId = (sessionPlayerId + 2) % 4;
+    if (isReconnect) {
+        std::cout << "Player " << serverPlayerId << " reconnecting, replaying "
+                  << eventHistory_[sessionPlayerId].size() << " events" << std::endl;
 
-    startMatch.set_teammateid(teammateId);
+        // Send RECONNECT_START marker
+        cardsGame::GameEventMsg startMarker;
+        startMarker.set_eventtype(cardsGame::EventType::RECONNECT_START_EVENT);
+        startMarker.mutable_playerinfo()->set_playerid(sessionPlayerId);
+        writer->Write(startMarker);
 
-    initialEvent.set_eventtype(cardsGame::EventType::START_MATCH_EVENT);
-    initialEvent.mutable_playerinfo()->set_playerid(sessionPlayerId);
-    *initialEvent.mutable_startmatch() = startMatch;
+        // Replay event history
+        for (const auto& event : eventHistory_[sessionPlayerId]) {
+            if (!writer->Write(event)) {
+                return grpc::Status(grpc::INTERNAL, "Failed to replay events");
+            }
+        }
 
-    std::cout << "Sending START_MATCH_EVENT to player " << serverPlayerId 
-              << " (session ID " << sessionPlayerId << ") with teammate ID " << teammateId << std::endl;
-    
-    bool writeSuccess = writer->Write(initialEvent); // send initial message
-    std::cout << "Write result: " << (writeSuccess ? "SUCCESS" : "FAILED") << std::endl;
+        // Send RECONNECT_END marker
+        cardsGame::GameEventMsg endMarker;
+        endMarker.set_eventtype(cardsGame::EventType::RECONNECT_END_EVENT);
+        endMarker.mutable_playerinfo()->set_playerid(sessionPlayerId);
+        writer->Write(endMarker);
+    } else {
+        // First connection - send START_MATCH_EVENT
+        cardsGame::GameEventMsg initialEvent;
+        cardsGame::StartMatchMsg startMatch;
+        startMatch.mutable_firsttoplayid()->set_playerid(0);
+        cardsGame::GameFormat* gameFormat = startMatch.mutable_gameformat();
+        gameFormat->set_gametype(gameType);
+        cardsGame::SingleOrMulti sm = (players.size() == 2) ? cardsGame::SingleOrMulti::SINGLE : cardsGame::SingleOrMulti::MULTI;
+        gameFormat->set_singleormulti(sm);
 
+        int teammateId = -1;
+        if(sm == cardsGame::SingleOrMulti::MULTI)
+            teammateId = (sessionPlayerId + 2) % 4;
+
+        startMatch.set_teammateid(teammateId);
+
+        initialEvent.set_eventtype(cardsGame::EventType::START_MATCH_EVENT);
+        initialEvent.mutable_playerinfo()->set_playerid(sessionPlayerId);
+        *initialEvent.mutable_startmatch() = startMatch;
+
+        std::cout << "Sending START_MATCH_EVENT to player " << serverPlayerId 
+                  << " (session ID " << sessionPlayerId << ") with teammate ID " << teammateId << std::endl;
+        
+        bool writeSuccess = writer->Write(initialEvent);
+        std::cout << "Write result: " << (writeSuccess ? "SUCCESS" : "FAILED") << std::endl;
+
+        // Record in event history
+        eventHistory_[sessionPlayerId].push_back(initialEvent);
+    }
+
+    // Register connection
     {
         std::lock_guard<std::mutex> lock(connectionsMutex);
         connections[sessionPlayerId] = std::make_shared<PlayerConnection>(writer);
-        numPlayers++;
+        if (!isReconnect) {
+            numPlayers++;
+        }
     }
 
+    // Wait until session ends or client disconnects
+    while (!context->IsCancelled() && !IsSessionOver()) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    }
+
+    // Disconnect handling
+    {
+        std::lock_guard<std::mutex> lock(connectionsMutex);
+        connections.erase(sessionPlayerId);
+
+        if (!IsSessionOver()) {
+            // Unexpected disconnect mid-game - mark for reconnection
+            disconnectedPlayers_[sessionPlayerId] = std::chrono::steady_clock::now();
+            std::cout << "Player " << serverPlayerId << " disconnected, waiting "
+                      << RECONNECT_TIMEOUT_SECONDS << "s for reconnect..." << std::endl;
+        } else {
+            numPlayers--;
+        }
+    }
+
+    std::cout << "SubscribeEvents ended for player " << serverPlayerId 
+              << " (session ID " << sessionPlayerId << ")" << std::endl;
+
+    return grpc::Status::OK;    
+}
+
+grpc::Status GameSession_NS::GameSession::SpectateSession(grpc::ServerContext* context,
+                                const cardsGame::SpectateReq* request,
+                                grpc::ServerWriter<cardsGame::GameEventMsg>* writer)
+{
+    int spectatorId;
+    {
+        std::lock_guard<std::mutex> lock(spectatorMutex_);
+        spectatorId = nextSpectatorId_++;
+        spectatorConnections_[spectatorId] = std::make_shared<PlayerConnection>(writer);
+    }
+    std::cout << "[Spectator " << spectatorId << "] joined session " << sessionId << std::endl;
+
+    // Send current match info
+    cardsGame::GameEventMsg infoEvent;
+    infoEvent.set_eventtype(cardsGame::EventType::START_MATCH_EVENT);
+    cardsGame::StartMatchMsg matchInfo;
+    cardsGame::GameFormat* gf = matchInfo.mutable_gameformat();
+    gf->set_gametype(gameType);
+    cardsGame::SingleOrMulti sm = (players.size() == 2) ? cardsGame::SingleOrMulti::SINGLE : cardsGame::SingleOrMulti::MULTI;
+    gf->set_singleormulti(sm);
+    *infoEvent.mutable_startmatch() = matchInfo;
+    writer->Write(infoEvent);
+
+    // Wait until session ends or spectator disconnects
     while (!context->IsCancelled() && !IsSessionOver()) {
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
 
     {
-        std::lock_guard<std::mutex> lock(connectionsMutex);
-        connections.erase(sessionPlayerId);
-        numPlayers--;
+        std::lock_guard<std::mutex> lock(spectatorMutex_);
+        spectatorConnections_.erase(spectatorId);
     }
+    std::cout << "[Spectator " << spectatorId << "] left session " << sessionId << std::endl;
 
-    std::cout << "Session with player " << serverPlayerId << " (session ID " << sessionPlayerId << ") over" << std::endl;
-
-
-    return grpc::Status::OK;    
+    return grpc::Status::OK;
 }
 
 int GameSession_NS::GameSession::playerIdToSessionPlayerId(int serverPlayerId)

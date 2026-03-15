@@ -4,6 +4,7 @@
 #include "cardsGame.grpc.pb.h"
 #include "cardsGame.pb.h"
 #include "EngineIF.h"
+#include <chrono>
 #include <memory>
 #include <unordered_map>
 #include "EventEmitter.h"
@@ -55,6 +56,9 @@ public:
     grpc::Status SubscribeEvents(grpc::ServerContext* context, 
                                 const cardsGame::PlayerInfo* request,
                                 grpc::ServerWriter<cardsGame::GameEventMsg>* writer) override;
+    grpc::Status SpectateSession(grpc::ServerContext* context,
+                                const cardsGame::SpectateReq* request,
+                                grpc::ServerWriter<cardsGame::GameEventMsg>* writer) override;
         
 
 private:
@@ -76,6 +80,22 @@ private:
 
     std::unordered_map<int, int> players; // server player ID -> session ID (engine player ID 0-3)
     int numPlayers = 0;
+
+    // Reconnection support
+    static constexpr int RECONNECT_TIMEOUT_SECONDS = 30;
+    std::unordered_map<int, std::vector<cardsGame::GameEventMsg>> eventHistory_;
+    std::unordered_map<int, std::chrono::steady_clock::time_point> disconnectedPlayers_;
+    bool forfeited_ = false;
+    int forfeitWinnerTeam_ = -1;
+
+    // Spectator support
+    std::unordered_map<int, std::shared_ptr<PlayerConnection>> spectatorConnections_;
+    std::mutex spectatorMutex_;
+    int nextSpectatorId_ = 0;
+
+    void sendEvent(int sessionPlayerId, const cardsGame::GameEventMsg& event);
+    void broadcastEvent(cardsGame::GameEventMsg& event, int excludeSessionId = -1);
+    void sendToSpectators(const cardsGame::GameEventMsg& event);
 
     MoveReturnValue ApplyMove(const Move& move);
     bool IsSessionOver() const;

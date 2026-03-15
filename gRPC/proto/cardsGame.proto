@@ -16,6 +16,11 @@ service CardsGameServer {
 service CardsGameSession {
   rpc SubscribeEvents(PlayerInfo) returns (stream GameEventMsg);
   rpc PlayMove (PlayMoveReq) returns (google.protobuf.Empty);
+  rpc SpectateSession(SpectateReq) returns (stream GameEventMsg);
+}
+
+message SpectateReq {
+  int32 sessionId = 1;
 }
 
 // ===========================================================================================
@@ -257,6 +262,8 @@ enum EventType {
     ACUSSO_EVENT = 10;
     BRISCOLA_LAST_ROUND_EVENT = 11;
     MOVE_RSP_EVENT = 12;
+    RECONNECT_START_EVENT = 13;
+    RECONNECT_END_EVENT = 14;
 }
 
 message GameEventMsg {

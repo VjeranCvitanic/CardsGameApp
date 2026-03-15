@@ -31,31 +31,54 @@ void BotClient::Run() {
     std::cout << "[Bot:" << name_ << "] Connected with playerId=" << playerId_
               << ", sessionId=" << sessionId_ << std::endl;
 
-    // 2. Subscribe — use same channel (CardsGameSession on same port)
+    // 2. Subscribe with reconnect loop
     auto sessionStub = cardsGame::CardsGameSession::NewStub(channel_);
+    bool matchOver = false;
 
-    grpc::ClientContext subCtx;
-    subCtx.set_deadline(std::chrono::system_clock::now() + std::chrono::minutes(30));
-    subCtx.set_wait_for_ready(true);
+    while (!matchOver) {
+        grpc::ClientContext subCtx;
+        subCtx.set_deadline(std::chrono::system_clock::now() + std::chrono::minutes(30));
+        subCtx.set_wait_for_ready(true);
 
-    cardsGame::PlayerInfo info;
-    info.set_playerid(playerId_);
-    info.set_sessionid(sessionId_);
-    auto reader = sessionStub->SubscribeEvents(&subCtx, info);
+        cardsGame::PlayerInfo info;
+        info.set_playerid(playerId_);
+        info.set_sessionid(sessionId_);
+        auto reader = sessionStub->SubscribeEvents(&subCtx, info);
 
-    cardsGame::GameEventMsg event;
-    while (reader->Read(&event)) {
-        if (event.eventtype() == cardsGame::START_MATCH_EVENT) {
-            std::cout << "[Bot:" << name_ << "] Match started: sessionId=" << sessionId_
-                      << " localId=" << event.playerinfo().playerid() << std::endl;
-        } else if (event.eventtype() == cardsGame::YOUR_TURN_EVENT) {
-            PlayMove(playerId_, sessionId_, event.yourturn(), sessionStub.get());
+        bool isReplay = false;
+        cardsGame::GameEventMsg event;
+        while (reader->Read(&event)) {
+            if (event.eventtype() == cardsGame::RECONNECT_START_EVENT) {
+                isReplay = true;
+                std::cout << "[Bot:" << name_ << "] Reconnect replay started" << std::endl;
+                continue;
+            }
+            if (event.eventtype() == cardsGame::RECONNECT_END_EVENT) {
+                isReplay = false;
+                std::cout << "[Bot:" << name_ << "] Reconnect replay ended" << std::endl;
+                continue;
+            }
+            if (event.eventtype() == cardsGame::START_MATCH_EVENT) {
+                std::cout << "[Bot:" << name_ << "] Match started: sessionId=" << sessionId_
+                          << " localId=" << event.playerinfo().playerid() << std::endl;
+            } else if (event.eventtype() == cardsGame::MATCH_OVER_EVENT) {
+                matchOver = true;
+            } else if (event.eventtype() == cardsGame::YOUR_TURN_EVENT && !isReplay) {
+                PlayMove(playerId_, sessionId_, event.yourturn(), sessionStub.get());
+            }
+        }
+
+        grpc::Status finish = reader->Finish();
+        std::cout << "[Bot:" << name_ << "] Stream finished: "
+                  << (finish.ok() ? "OK" : finish.error_message()) << std::endl;
+
+        if (!matchOver) {
+            std::cout << "[Bot:" << name_ << "] Disconnected, retrying in 2s..." << std::endl;
+            std::this_thread::sleep_for(std::chrono::seconds(2));
+            // Need a new stub for the new context
+            sessionStub = cardsGame::CardsGameSession::NewStub(channel_);
         }
     }
-
-    grpc::Status finish = reader->Finish();
-    std::cout << "[Bot:" << name_ << "] Stream finished: "
-              << (finish.ok() ? "OK" : finish.error_message()) << std::endl;
 }
 
 void BotClient::PlayMove(int sessionPlayerId, int sessionId,

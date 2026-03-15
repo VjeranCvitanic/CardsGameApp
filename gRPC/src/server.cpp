@@ -227,6 +227,18 @@ grpc::Status SessionDispatcher::PlayMove(
     return session->PlayMove(context, request, response);
 }
 
+grpc::Status SessionDispatcher::SpectateSession(
+    grpc::ServerContext* context,
+    const cardsGame::SpectateReq* request,
+    grpc::ServerWriter<cardsGame::GameEventMsg>* writer)
+{
+    GameSession_NS::GameSession* session = findSession(request->sessionid());
+    if (!session) {
+        return grpc::Status(grpc::NOT_FOUND, "Session not found: " + std::to_string(request->sessionid()));
+    }
+    return session->SpectateSession(context, request, writer);
+}
+
 int main() {
     cardsGameServiceImpl server;
     server.RunListener();

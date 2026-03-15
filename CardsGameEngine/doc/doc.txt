@@ -8,9 +8,6 @@ TODO - result aggregation ( server controls persistent storage in shape of <name
 TODO - client disconnects during game
 
 
-TODO - build for windows
-
-
 TODO - translation between proto and domain
 TODO - cleanup proto, playerId attributes are redundant in some places
 TODO - non-local ip addresses
@@ -30,3 +27,4 @@ DONE - remove raw ptrs from gamesession
 
 AI done - tests (engine tests, client - server interface tests)
 
+DONE - build for windows

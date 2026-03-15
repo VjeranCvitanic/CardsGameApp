@@ -39,6 +39,9 @@ public:
     grpc::Status PlayMove(grpc::ServerContext* context,
                           const cardsGame::PlayMoveReq* request,
                           google::protobuf::Empty* response) override;
+    grpc::Status SpectateSession(grpc::ServerContext* context,
+                                 const cardsGame::SpectateReq* request,
+                                 grpc::ServerWriter<cardsGame::GameEventMsg>* writer) override;
 
 private:
     GameSession_NS::GameSession* findSession(int sessionId);

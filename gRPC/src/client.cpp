@@ -85,40 +85,116 @@ void cardsGameClient::StartClient() {
   }
 
   std::thread eventThread([&]() {
-    grpc::ClientContext context;
-    cardsGame::PlayerInfo playerInfo;
-    playerInfo.set_playerid(id);
+    bool matchOver = false;
 
-    std::unique_ptr<grpc::ClientReader<cardsGame::GameEventMsg>> reader;
-    WaitForSessionStarted(context, reader);
+    while (!matchOver) {
+      grpc::ClientContext context;
+      context.set_deadline(std::chrono::system_clock::now() +
+                           std::chrono::minutes(30));
+      context.set_wait_for_ready(true);
 
-    cardsGame::GameEventMsg event;
+      cardsGame::PlayerInfo playerInfo;
+      playerInfo.set_playerid(id);
+      playerInfo.set_sessionid(sessionId_);
 
-    while (reader->Read(&event)) {
-      std::cout << "[EVENT] " << event.DebugString() << std::endl;
-      processEvent(event);
-      if (isAi == false) {
-        getchar();
+      auto reader = sessionStub_->SubscribeEvents(&context, playerInfo);
+      if (!reader) {
+        std::cerr << "Failed to create event stream" << std::endl;
+        break;
       }
-    }
 
-    grpc::Status status = reader->Finish();
-    if (!status.ok()) {
-      std::cerr << "Event stream closed with error: " << status.error_message()
-                << std::endl;
-    } else {
-      std::cout << "Event stream finished ok." << std::endl;
+      bool isReplay = false;
+      cardsGame::GameEventMsg event;
+
+      while (reader->Read(&event)) {
+        if (event.eventtype() == cardsGame::RECONNECT_START_EVENT) {
+          isReplay = true;
+          std::cout << "[RECONNECT] Replaying events..." << std::endl;
+          continue;
+        }
+        if (event.eventtype() == cardsGame::RECONNECT_END_EVENT) {
+          isReplay = false;
+          std::cout << "[RECONNECT] Replay complete, resuming." << std::endl;
+          continue;
+        }
+
+        std::cout << "[EVENT] " << event.DebugString() << std::endl;
+
+        if (event.eventtype() == cardsGame::MATCH_OVER_EVENT) {
+          matchOver = true;
+        }
+
+        // During replay, don't respond to YOUR_TURN (those turns already happened)
+        if (!isReplay) {
+          processEvent(event);
+          if (!isAi) {
+            getchar();
+          }
+        }
+      }
+
+      grpc::Status status = reader->Finish();
+      if (!status.ok()) {
+        std::cerr << "Event stream closed with error: " << status.error_message()
+                  << std::endl;
+      }
+
+      if (!matchOver) {
+        std::cout << "Disconnected, attempting to reconnect in 2s..." << std::endl;
+        std::this_thread::sleep_for(std::chrono::seconds(2));
+      } else {
+        std::cout << "Match finished." << std::endl;
+      }
     }
   });
 
   eventThread.join();
 }
 
+void runSpectator(int sessionId) {
+  auto channel = grpc::CreateChannel("localhost:50051", grpc::InsecureChannelCredentials());
+  auto stub = cardsGame::CardsGameSession::NewStub(channel);
+
+  grpc::ClientContext ctx;
+  ctx.set_wait_for_ready(true);
+
+  cardsGame::SpectateReq req;
+  req.set_sessionid(sessionId);
+
+  auto reader = stub->SpectateSession(&ctx, req);
+  if (!reader) {
+    std::cerr << "Failed to start spectating session " << sessionId << std::endl;
+    return;
+  }
+
+  std::cout << "[SPECTATOR] Watching session " << sessionId << "..." << std::endl;
+
+  cardsGame::GameEventMsg event;
+  while (reader->Read(&event)) {
+    std::cout << "[SPECTATOR] " << event.DebugString() << std::endl;
+  }
+
+  grpc::Status status = reader->Finish();
+  if (!status.ok()) {
+    std::cerr << "[SPECTATOR] Stream ended: " << status.error_message() << std::endl;
+  } else {
+    std::cout << "[SPECTATOR] Session finished." << std::endl;
+  }
+}
+
 int main(int argc, char **argv) {
   srand(time(nullptr)); // Seed random number generator for AI
+
+  // Spectator mode: client spectate <sessionId>
+  if (argc == 3 && std::string(argv[1]) == "spectate") {
+    int sessionId = std::stoi(argv[2]);
+    runSpectator(sessionId);
+    return 0;
+  }
   
   if (argc != 5) {
-    std::cout << "Usage: client <name> <gameType> <numPlayers> <human|ai>"
+    std::cout << "Usage: client <name> <gameType> <numPlayers> <human|ai>\n"
+              << "       client spectate <sessionId>"
               << std::endl;
     return 1;
   }
