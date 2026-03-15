@@ -33,8 +33,8 @@ class GameSession : public cardsGame::CardsGameSession::Service, public EventSin
 {
     friend class ::TestableGameSession;  // Allow block tests to access private members
 public:
-    GameSession(int Port, int sessionId, std::vector<int> _playersIdList, int _numMatches = 1, cardsGame::GameType _gameType = cardsGame::GameType::BRISCOLA, int _numPlayers = 2)
-        : port(Port), sessionId(sessionId), numMatchesToPlay(_numMatches), cntMatchesPlayed(0), teamWins{0, 0}, gameType(_gameType), numPlayers(_numPlayers)
+    GameSession(int sessionId, std::vector<int> _playersIdList, int _numMatches = 1, cardsGame::GameType _gameType = cardsGame::GameType::BRISCOLA, int _numPlayers = 2)
+        : sessionId(sessionId), numMatchesToPlay(_numMatches), cntMatchesPlayed(0), teamWins{0, 0}, gameType(_gameType), numPlayers(_numPlayers)
         {
             std::cout << "GameSession constructor: registering " << _playersIdList.size() << " players" << std::endl;
             for(size_t i = 0; i < _playersIdList.size(); i++) {
@@ -43,7 +43,14 @@ public:
             }
         }
 
+    struct SessionResult {
+        int sessionId = -1;
+        int winnerTeamId = -1;
+        int teamWins[2] = {0, 0};
+    };
+
     void StartSession();
+    SessionResult GetResult() const;
     grpc::Status PlayMove(grpc::ServerContext* context, const cardsGame::PlayMoveReq* request, ::google::protobuf::Empty* response) override;
     grpc::Status SubscribeEvents(grpc::ServerContext* context, 
                                 const cardsGame::PlayerInfo* request,
@@ -56,7 +63,6 @@ private:
     std::unordered_map<int, std::shared_ptr<PlayerConnection>> connections;
     std::mutex connectionsMutex;
 
-    int port;
     cardsGame::GameType gameType;
     int numMatchesToPlay;
     int cntMatchesPlayed;

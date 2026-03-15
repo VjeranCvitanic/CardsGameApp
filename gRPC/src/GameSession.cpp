@@ -10,41 +10,39 @@
 
 void GameSession_NS::GameSession::StartSession()
  {
-    std::cout << "Game session started!" << std::endl;
+    std::cout << "Game session " << sessionId << " started, waiting for players to connect..." << std::endl;
     isStarted = true;
 
     eventEmitter = std::make_unique<EventEmitter>();
     eventEmitter->subscribe(&Logger::GetInstance());
     eventEmitter->subscribe(this);
 
-    std::string server_address("0.0.0.0:" + std::to_string(port));
-
-    grpc::ServerBuilder builder;
-    builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
-    builder.RegisterService(this);
-
-    std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
-    std::cout << "Session running on " << server_address << std::endl;
-
-    std::thread waitThread([this]() {
-        size_t expectedPlayers = players.size();
-        while(true) {
-            {
-                std::lock_guard<std::mutex> lock(connectionsMutex);
-                if(connections.size() >= expectedPlayers) {
-                    break;
-                }
+    size_t expectedPlayers = players.size();
+    while(true) {
+        {
+            std::lock_guard<std::mutex> lock(connectionsMutex);
+            if(connections.size() >= expectedPlayers) {
+                break;
             }
-            std::cout << "Waiting for players to join..." << std::endl;
-            std::this_thread::sleep_for(std::chrono::seconds(1));
         }
-        std::cout << "All players joined!" << std::endl;
-        startMatch();
-    });
+        std::cout << "Session " << sessionId << ": waiting for players (" 
+                  << connections.size() << "/" << expectedPlayers << ")..." << std::endl;
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
+    std::cout << "Session " << sessionId << ": all players joined, starting match!" << std::endl;
+    startMatch();
 
-    waitThread.detach();
-
-    server->Wait();
+    // Keep session alive until all connections are gone
+    while(true) {
+        {
+            std::lock_guard<std::mutex> lock(connectionsMutex);
+            if(connections.empty() && IsSessionOver()) {
+                break;
+            }
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    }
+    std::cout << "Session " << sessionId << " finished." << std::endl;
 }
 
 void GameSession_NS::GameSession::dealCards(const PlayerDealtCardsEvent& event)
@@ -564,6 +562,15 @@ bool GameSession_NS::GameSession::IsSessionOver() const {
     return cntMatchesPlayed >= numMatchesToPlay;
 }
 
+GameSession_NS::GameSession::SessionResult GameSession_NS::GameSession::GetResult() const {
+    SessionResult r;
+    r.sessionId = sessionId;
+    r.winnerTeamId = (teamWins[0] >= teamWins[1]) ? 0 : 1;
+    r.teamWins[0] = teamWins[0];
+    r.teamWins[1] = teamWins[1];
+    return r;
+}
+
 void GameSession_NS::GameSession::PrintResults() {
     std::cout << "Game session results:" << std::endl;
     std::cout << "Team 1 wins: " << teamWins[0] << std::endl;
@@ -572,6 +579,12 @@ void GameSession_NS::GameSession::PrintResults() {
 
 grpc::
 Status GameSession_NS::GameSession::PlayMove(grpc::ServerContext* context, const cardsGame::PlayMoveReq* request, ::google::protobuf::Empty* response) {
+    int serverPlayerId = request->playerinfo().playerid();
+    auto it = players.find(serverPlayerId);
+    if (it == players.end()) {
+        return grpc::Status(grpc::PERMISSION_DENIED, "Player not registered in this session");
+    }
+
     Move move;
     PlayMoveReqToDomain(*request, move);
 

@@ -21,18 +21,12 @@ bool cardsGameClient::Connect(const std::string &name,
 
   grpc::Status status = lobbyStub_->Connect(&context, request, &reply);
   if (status.ok()) {
-    std::cout << "My id: " << reply.successmsg().playerid() << std::endl;
     id = reply.successmsg().playerid();
-    gameSessionAddress = reply.successmsg().address();
-    grpc::ChannelArguments args;
-    args.SetInt("grpc.wait_for_ready", 1);
-    sessionStub_ = std::unique_ptr<cardsGame::CardsGameSession::Stub>(
-        cardsGame::CardsGameSession::NewStub(grpc::CreateCustomChannel(
-            gameSessionAddress, grpc::InsecureChannelCredentials(), args)));
+    sessionId_ = reply.successmsg().sessionid();
+    std::cout << "My id: " << id << ", sessionId: " << sessionId_ << std::endl;
     return true;
   } else {
-    std::cout << "RPC failed" << status.error_message() << std::endl;
-    ;
+    std::cout << "RPC failed: " << status.error_message() << std::endl;
     return false;
   }
 }
@@ -40,13 +34,13 @@ bool cardsGameClient::Connect(const std::string &name,
 bool cardsGameClient::WaitForSessionStarted(
     grpc::ClientContext &sessionContext,
     std::unique_ptr<grpc::ClientReader<cardsGame::GameEventMsg>> &reader) {
-  // Optional: Add deadline to avoid hanging
   sessionContext.set_deadline(std::chrono::system_clock::now() +
                               std::chrono::minutes(30));
   sessionContext.set_wait_for_ready(true);
                       
   cardsGame::PlayerInfo playerInfo;
   playerInfo.set_playerid(id);
+  playerInfo.set_sessionid(sessionId_);
 
   cardsGame::GameEventMsg sessionReply;
   reader = sessionStub_->SubscribeEvents(&sessionContext, playerInfo);
@@ -74,11 +68,9 @@ void cardsGameClient::PlayMove(std::unique_ptr<cardsGame::Move> move) {
   cardsGame::PlayMoveReq request;
   cardsGame::PlayerInfo* playerInfo = request.mutable_playerinfo();
   playerInfo->set_playerid(id);
+  playerInfo->set_sessionid(sessionId_);
   request.set_allocated_move(move.release());
 
-  if (!sessionStub_) {
-    std::cout << "Session stub is null" << std::endl;
-  }
   grpc::Status s = sessionStub_->PlayMove(&moveCtx, request, &response);
 
   if (!s.ok()) {

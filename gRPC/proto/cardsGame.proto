@@ -12,6 +12,7 @@ service CardsGameServer {
 
 // reason for this design: engine would return gameEvent as rsp to
 // player´s move, which triggers onEvent on gameSession side.
+// Session RPCs are multiplexed on the same port via PlayerInfo.sessionId.
 service CardsGameSession {
   rpc SubscribeEvents(PlayerInfo) returns (stream GameEventMsg);
   rpc PlayMove (PlayMoveReq) returns (google.protobuf.Empty);
@@ -23,6 +24,7 @@ service CardsGameSession {
 message PlayerInfo {
   optional int32 playerId = 1; // optional just to avoid the 
                                // problem with non-printing of default value (0)
+  optional int32 sessionId = 2; // which GameSession this player belongs to
 }
 
 enum GameType {
@@ -51,7 +53,7 @@ message ConnectReq {
 
 message SuccessfullConn {
   optional int32 playerId = 1;
-  string address = 2;
+  int32 sessionId = 2; // session to connect to (replaces per-session port/address)
 }
 
 // The response message

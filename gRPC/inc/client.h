@@ -9,8 +9,9 @@ class cardsGameClient {
 public:
     cardsGameClient(std::shared_ptr<grpc::Channel> channel, std::string clientName = "", bool _ai = false,
         cardsGame::GameFormat gameFormat = cardsGame::GameFormat())
-        : lobbyStub_(cardsGame::CardsGameServer::NewStub(channel)), name(clientName), isAi(_ai),
-        gameFormat(gameFormat) {}
+        : lobbyStub_(cardsGame::CardsGameServer::NewStub(channel)),
+          sessionStub_(cardsGame::CardsGameSession::NewStub(channel)),
+          name(clientName), isAi(_ai), gameFormat(gameFormat) {}
 
     bool Connect(const std::string& name, cardsGame::GameType gameType, cardsGame::SingleOrMulti singleOrMulti);
     void PlayMove(std::unique_ptr<cardsGame::Move> move);
@@ -19,10 +20,10 @@ public:
 
 private:
     std::unique_ptr<cardsGame::CardsGameServer::Stub> lobbyStub_;
-    std::unique_ptr<cardsGame::CardsGameSession::Stub> sessionStub_; // i need to set this at start
-    int id;
+    std::unique_ptr<cardsGame::CardsGameSession::Stub> sessionStub_;
+    int id = -1;
+    int sessionId_ = -1;
     std::string name;
-    std::string gameSessionAddress;
     bool isAi;
 
     cardsGame::GameFormat gameFormat;

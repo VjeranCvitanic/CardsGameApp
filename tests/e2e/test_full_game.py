@@ -98,7 +98,8 @@ class EventRecorder:
         self.events: list[pb.GameEventMsg] = []
         self.error: Exception | None = None
         self.my_server_id    = -1
-        self.my_session_id   = -1
+        self.my_session_id   = -1   # routing ID from ConnectRsp
+        self.my_local_id     = -1   # session-local player ID from START_MATCH_EVENT
         self._done           = threading.Event()
 
     def run(self):
@@ -125,16 +126,14 @@ class EventRecorder:
         assert rsp.HasField("successMsg"), \
             f"[{self.name}] Connect failed: {rsp.fail_reason}"
 
-        self.my_server_id = rsp.successMsg.playerId
-        session_addr      = rsp.successMsg.address
+        self.my_server_id  = rsp.successMsg.playerId
+        self.my_session_id = rsp.successMsg.sessionId
 
-        # 2. Subscribe to session events
-        sess_ch   = grpc.insecure_channel(session_addr,
-                                          options=[("grpc.wait_for_ready", True)])
-        sess_stub = pb_grpc.CardsGameSessionStub(sess_ch)
+        # 2. Subscribe to session events on the same channel
+        sess_stub = pb_grpc.CardsGameSessionStub(lobby_ch)
 
         stream = sess_stub.SubscribeEvents(
-            pb.PlayerInfo(playerId=self.my_server_id),
+            pb.PlayerInfo(playerId=self.my_server_id, sessionId=self.my_session_id),
             timeout=GAME_TIMEOUT_S,
             wait_for_ready=True,
         )
@@ -146,7 +145,7 @@ class EventRecorder:
 
     def _handle(self, event: pb.GameEventMsg, stub: pb_grpc.CardsGameSessionStub):
         if event.eventType == pb.START_MATCH_EVENT:
-            self.my_session_id = event.playerInfo.playerId
+            self.my_local_id = event.playerInfo.playerId  # session-local player ID
 
         elif event.eventType == pb.YOUR_TURN_EVENT:
             legal = list(event.yourTurn.legalCards)
@@ -156,7 +155,8 @@ class EventRecorder:
             import random
             chosen = random.choice(legal)
             stub.PlayMove(pb.PlayMoveReq(
-                playerInfo=pb.PlayerInfo(playerId=self.my_server_id),
+                playerInfo=pb.PlayerInfo(playerId=self.my_server_id,
+                                         sessionId=self.my_session_id),
                 move=pb.Move(card=chosen, call=pb.NO_CALL),
             ))
 
@@ -282,7 +282,7 @@ class TestBriscola2Player:
         for c in (self.c1, self.c2):
             my_moves = [
                 e for e in events_of_type(c, pb.PLAYER_PLAYED_MOVE_EVENT)
-                if e.playerPlayedMove.playerInfo.playerId == c.my_session_id
+                if e.playerPlayedMove.playerInfo.playerId == c.my_local_id
             ]
             assert not my_moves, \
                 f"{c.name}: Received own PLAYER_PLAYED_MOVE_EVENT (should not)"
@@ -338,12 +338,12 @@ class TestConnectValidation:
             self.stub.Connect(pb.ConnectReq(name=name, gameFormats=[fmt]))
         assert exc_info.value.code() == grpc.StatusCode.ALREADY_EXISTS
 
-    def test_successful_connect_returns_player_id_and_address(self):
+    def test_successful_connect_returns_player_id_and_session_id(self):
         fmt = pb.GameFormat(gameType=pb.BRISCOLA, singleOrMulti=pb.SINGLE)
         rsp = self.stub.Connect(pb.ConnectReq(
             name=f"ValidPlayer_{uuid.uuid4().hex[:8]}", gameFormats=[fmt]
         ))
         assert rsp.HasField("successMsg")
         assert rsp.successMsg.playerId >= 0
-        assert ":" in rsp.successMsg.address, \
-            "address must be in host:port format"
+        assert rsp.successMsg.sessionId >= 0, \
+            "sessionId must be a non-negative integer"
